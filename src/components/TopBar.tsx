@@ -205,24 +205,30 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
             type="button"
             onClick={handleReplaceClick}
             title="Upload a different JSON file"
-            className="text-lg transition hover:scale-110"
+            className="text-lg transition hover:scale-110 cursor-pointer"
           >
-            🔃
+            &#128259;
           </button>
         </div>
         <div className="flex-1 text-center text-[0.65rem] text-slate-400 lg:text-xs">
           <span className="font-semibold text-slate-100">
             Loaded {loadedCounts.total.toLocaleString()}
           </span>
-          <span className="mx-2 text-slate-600">•</span>
+          <span className="mx-2 text-slate-600" aria-hidden="true">
+            &bull;
+          </span>
           <span>R {loadedCounts.runner.toLocaleString()}</span>
           <span className="mx-1 text-slate-600">/</span>
           <span>C {loadedCounts.corp.toLocaleString()}</span>
-          <span className="mx-3 text-slate-700">·</span>
+          <span className="mx-3 text-slate-700" aria-hidden="true">
+            &bull;
+          </span>
           <span className="font-semibold text-slate-200">
             Filtered {filteredCounts.total.toLocaleString()}
           </span>
-          <span className="mx-2 text-slate-700">•</span>
+          <span className="mx-2 text-slate-700" aria-hidden="true">
+            &bull;
+          </span>
           <span>R {filteredCounts.runner.toLocaleString()}</span>
           <span className="mx-1 text-slate-700">/</span>
           <span>C {filteredCounts.corp.toLocaleString()}</span>

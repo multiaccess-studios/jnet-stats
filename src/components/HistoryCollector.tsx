@@ -138,14 +138,25 @@ export function HistoryCollector() {
                 Make sure your bookmarks bar is showing so you can drop the helper into it.
               </p>
               <p className="text-xs text-slate-300">
-                {browser === "chrome" &&
-                  "Chrome: Menu → Bookmarks → Show bookmarks bar (or Ctrl+Shift+B / Cmd+Shift+B)."}
-                {browser === "firefox" &&
-                  "Firefox: Right-click the top area → Bookmarks Toolbar → Always Show."}
-                {browser === "safari" && "Safari: View → Show Favorites Bar (or Shift+Cmd+B)."}
-                {browser === "edge" && "Edge: Menu → Favorites → Show favorites bar → Always."}
+                {browser === "chrome" && (
+                  <>
+                    Chrome: Menu &rarr; Bookmarks &rarr; Show bookmarks bar (or Ctrl+Shift+B /
+                    Cmd+Shift+B).
+                  </>
+                )}
+                {browser === "firefox" && (
+                  <>
+                    Firefox: Right-click the top area &rarr; Bookmarks Toolbar &rarr; Always Show.
+                  </>
+                )}
+                {browser === "safari" && (
+                  <>Safari: View &rarr; Show Favorites Bar (or Shift+Cmd+B).</>
+                )}
+                {browser === "edge" && (
+                  <>Edge: Menu &rarr; Favorites &rarr; Show favorites bar &rarr; Always.</>
+                )}
                 {browser === "other" &&
-                  "Show your browser’s bookmarks bar so you can drag a button into it."}
+                  "Show your browser's bookmarks bar so you can drag a button into it."}
               </p>
             </div>
             <div>
@@ -245,9 +256,11 @@ export function HistoryCollector() {
               onChange={onFileChange}
             />
             <p className="text-sm font-semibold text-white">
-              {isLoading
-                ? "Loading game_history.json…"
-                : "Drop game_history.json or click to choose"}
+              {isLoading ? (
+                <>Loading game_history.json&hellip;</>
+              ) : (
+                <>Drop game_history.json or click to choose</>
+              )}
             </p>
             <p className="mt-2 text-xs text-slate-400">
               {isLoading
