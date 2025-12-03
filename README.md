@@ -40,7 +40,6 @@ src/
 ## Testing / QA
 
 - `bun lint` – static analysis; no automated feature tests yet.
-- For manual QA, load sample exports from `manual-data-archive/` into the app to inspect charts.
 
 ## Deployment
 
