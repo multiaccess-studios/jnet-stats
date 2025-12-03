@@ -5,6 +5,8 @@ import { HistoryCollector } from "./components/HistoryCollector";
 import { IdentityPerformanceSection } from "./components/IdentityPerformanceSection";
 import { RollingWinRateSection } from "./components/RollingWinRateSection";
 import { OpponentPerformanceSection } from "./components/OpponentPerformanceSection";
+import { UniqueAccessesSection } from "./components/UniqueAccessesSection";
+import { CorpAccessesSection } from "./components/CorpAccessesSection";
 import { TopBar } from "./components/TopBar";
 import { useStatsStore } from "./lib/store";
 import { useDataBounds } from "./lib/hooks";
@@ -45,6 +47,8 @@ export function App() {
 
         <DifferentialSection />
         <RollingWinRateSection />
+        <UniqueAccessesSection />
+        <CorpAccessesSection />
         <IdentityPerformanceSection />
         <OpponentPerformanceSection />
 

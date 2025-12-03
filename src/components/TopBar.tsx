@@ -35,6 +35,16 @@ const VISUALIZATION_OPTIONS: {
     description: "Smoothed win rate based on the rolling window size.",
   },
   {
+    key: "uniqueAccesses",
+    label: "Unique accesses to win",
+    description: "Runner-only stacked bars of wins and losses by unique accesses.",
+  },
+  {
+    key: "corpAccesses",
+    label: "Accesses faced as corp",
+    description: "Runner accesses against you broken down by win/loss as corp.",
+  },
+  {
     key: "identities",
     label: "Identity Performance",
     description: "Chart of each identity's win rate.",

@@ -27,6 +27,8 @@ interface StatsState {
   entityFilter: GlobalEntityFilter | null;
   entityQuery: string;
   visualizations: Record<VisualizationKey, boolean>;
+  uniqueAccessTopSegmentRunner: UniqueAccessTopSegment;
+  uniqueAccessTopSegmentCorp: UniqueAccessTopSegment;
   setGames: (games: GameRecord[]) => void;
   setUploadError: (message: string | null) => void;
   setActiveFileName: (name: string) => void;
@@ -41,17 +43,28 @@ interface StatsState {
   setEntityQuery: (query: string) => void;
   setVisualization: (key: VisualizationKey, value: boolean) => void;
   toggleVisualization: (key: VisualizationKey) => void;
+  setUniqueAccessTopSegmentRunner: (value: UniqueAccessTopSegment) => void;
+  setUniqueAccessTopSegmentCorp: (value: UniqueAccessTopSegment) => void;
   resetData: () => void;
 }
 
 const INITIAL_FILE_NAME = "No file selected";
-export type VisualizationKey = "differential" | "rolling" | "identities" | "opponents";
+export type VisualizationKey =
+  | "differential"
+  | "rolling"
+  | "identities"
+  | "opponents"
+  | "uniqueAccesses"
+  | "corpAccesses";
+export type UniqueAccessTopSegment = "wins" | "losses";
 
 const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object.freeze({
   differential: true,
   rolling: true,
   identities: true,
   opponents: true,
+  uniqueAccesses: true,
+  corpAccesses: false,
 });
 
 function mergeVisualizationDefaults(
@@ -79,6 +92,8 @@ export const useStatsStore = create<StatsState>()(
       entityFilter: null,
       entityQuery: "",
       visualizations: mergeVisualizationDefaults(),
+      uniqueAccessTopSegmentRunner: "wins",
+      uniqueAccessTopSegmentCorp: "losses",
       setGames: (games) =>
         set(() => ({
           games,
@@ -111,6 +126,8 @@ export const useStatsStore = create<StatsState>()(
             [key]: !state.visualizations[key],
           },
         })),
+      setUniqueAccessTopSegmentRunner: (value) => set({ uniqueAccessTopSegmentRunner: value }),
+      setUniqueAccessTopSegmentCorp: (value) => set({ uniqueAccessTopSegmentCorp: value }),
       resetData: () =>
         set(() => ({
           games: [],
@@ -127,14 +144,26 @@ export const useStatsStore = create<StatsState>()(
     }),
     {
       name: "jnet-stats-visualizations",
-      partialize: (state) => ({ visualizations: state.visualizations }),
+      partialize: (state) => ({
+        visualizations: state.visualizations,
+        uniqueAccessTopSegmentRunner: state.uniqueAccessTopSegmentRunner,
+        uniqueAccessTopSegmentCorp: state.uniqueAccessTopSegmentCorp,
+      }),
       merge: (persisted, current) => {
         const stored = persisted as
-          | { visualizations?: Record<VisualizationKey, boolean> }
+          | {
+              visualizations?: Record<VisualizationKey, boolean>;
+              uniqueAccessTopSegmentRunner?: UniqueAccessTopSegment;
+              uniqueAccessTopSegmentCorp?: UniqueAccessTopSegment;
+            }
           | undefined;
         return {
           ...current,
           visualizations: mergeVisualizationDefaults(stored?.visualizations),
+          uniqueAccessTopSegmentRunner:
+            stored?.uniqueAccessTopSegmentRunner ?? current.uniqueAccessTopSegmentRunner,
+          uniqueAccessTopSegmentCorp:
+            stored?.uniqueAccessTopSegmentCorp ?? current.uniqueAccessTopSegmentCorp,
         };
       },
     },

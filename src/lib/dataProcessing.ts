@@ -13,6 +13,7 @@ export interface GameRecord {
   corp: RoleSnapshot;
   completedAt: Date | null;
   format: string | null;
+  runnerUniqueAccesses: number | null;
 }
 
 export interface UserProfile {
@@ -49,6 +50,7 @@ type RawGameRecord =
       ["end-date"]?: unknown;
       ["start-date"]?: unknown;
       ["creation-date"]?: unknown;
+      stats?: unknown;
     }
   | null
   | undefined;
@@ -96,6 +98,13 @@ export interface DifferentialFilters {
   side?: PlayerRole;
   faction?: string;
   identity?: string;
+}
+
+export interface UniqueAccessBucket {
+  uniqueAccesses: number;
+  wins: number;
+  losses: number;
+  total: number;
 }
 
 export function parseGameHistoryText(raw: string): GameRecord[] {
@@ -301,6 +310,7 @@ function normalizeGame(rawGame: RawGameRecord): GameRecord {
     corp: normalizeRole(rawGame?.corp),
     completedAt,
     format: typeof rawGame?.format === "string" ? rawGame.format.trim().toLowerCase() : null,
+    runnerUniqueAccesses: parseRunnerUniqueAccesses(rawGame),
   };
 }
 
@@ -336,6 +346,23 @@ function parseDate(value: unknown): Date | null {
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return null;
   return new Date(timestamp);
+}
+
+function parseRunnerUniqueAccesses(rawGame: RawGameRecord): number | null {
+  const stats = rawGame?.stats;
+  if (!stats || typeof stats !== "object") return null;
+  const runnerValue = (stats as { runner?: unknown }).runner;
+  if (!runnerValue || typeof runnerValue !== "object") return null;
+  const accessValue = (runnerValue as { access?: unknown }).access;
+  if (!accessValue || typeof accessValue !== "object") return null;
+  const uniqueCards = (accessValue as { ["unique-cards"]?: unknown })["unique-cards"];
+  if (Array.isArray(uniqueCards)) {
+    return uniqueCards.length;
+  }
+  if (typeof uniqueCards === "number" && Number.isFinite(uniqueCards) && uniqueCards >= 0) {
+    return Math.floor(uniqueCards);
+  }
+  return null;
 }
 
 export function buildDifferentialTimeline(
@@ -495,6 +522,65 @@ export function buildRollingWinRate(
     });
   }
   return result;
+}
+
+export function buildRunnerUniqueAccessBuckets(
+  games: GameRecord[],
+  username: string,
+): UniqueAccessBucket[] {
+  if (!games.length) return [];
+  const buckets = new Map<number, { wins: number; losses: number }>();
+  for (const game of games) {
+    const role = resolveUserRole(game, username);
+    if (role !== "runner") continue;
+    if (game.winner === null) continue;
+    if (game.runnerUniqueAccesses === null) continue;
+    const current = buckets.get(game.runnerUniqueAccesses) ?? { wins: 0, losses: 0 };
+    if (game.winner === "runner") {
+      current.wins += 1;
+    } else {
+      current.losses += 1;
+    }
+    buckets.set(game.runnerUniqueAccesses, current);
+  }
+
+  return Array.from(buckets.entries())
+    .map(([uniqueAccesses, { wins, losses }]) => ({
+      uniqueAccesses,
+      wins,
+      losses,
+      total: wins + losses,
+    }))
+    .sort((a, b) => a.uniqueAccesses - b.uniqueAccesses);
+}
+
+export function buildCorpAccessBuckets(
+  games: GameRecord[],
+  username: string,
+): UniqueAccessBucket[] {
+  if (!games.length) return [];
+  const buckets = new Map<number, { wins: number; losses: number }>();
+  for (const game of games) {
+    const role = resolveUserRole(game, username);
+    if (role !== "corp") continue;
+    if (game.winner === null) continue;
+    if (game.runnerUniqueAccesses === null) continue;
+    const current = buckets.get(game.runnerUniqueAccesses) ?? { wins: 0, losses: 0 };
+    if (game.winner === "corp") {
+      current.wins += 1;
+    } else {
+      current.losses += 1;
+    }
+    buckets.set(game.runnerUniqueAccesses, current);
+  }
+  return Array.from(buckets.entries())
+    .map(([uniqueAccesses, { wins, losses }]) => ({
+      uniqueAccesses,
+      wins,
+      losses,
+      total: wins + losses,
+    }))
+    .sort((a, b) => a.uniqueAccesses - b.uniqueAccesses);
 }
 
 function truncateToPeriod(date: Date, period: AggregationPeriod) {
