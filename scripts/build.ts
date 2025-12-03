@@ -1,5 +1,9 @@
 import path from "node:path";
+import { copyFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import tailwindcss from "bun-plugin-tailwind";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const result = await Bun.build({
   entrypoints: ["./src/index.html"],
@@ -34,6 +38,13 @@ const files = result.outputs
   .filter((output) => output.path)
   .map((output) => path.relative(process.cwd(), output.path));
 
+const logoSource = path.resolve(scriptDir, "../src/logo.svg");
+const logoTarget = path.resolve(scriptDir, "../dist/logo.svg");
+await copyFile(logoSource, logoTarget);
+files.push(path.relative(process.cwd(), logoTarget));
+
 console.log(
-  `Built ${files.length} file${files.length === 1 ? "" : "s"}:\n${files.map((file) => `  • ${file}`).join("\n")}`,
+  `Built ${files.length} file${files.length === 1 ? "" : "s"}:\n${files
+    .map((file) => `  - ${file}`)
+    .join("\n")}`,
 );
