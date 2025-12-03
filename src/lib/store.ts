@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   detectUserProfile,
   type AggregationPeriod,
@@ -44,69 +45,98 @@ interface StatsState {
 }
 
 const INITIAL_FILE_NAME = "No file selected";
-export type VisualizationKey = "differential" | "rolling" | "identities";
+export type VisualizationKey = "differential" | "rolling" | "identities" | "opponents";
 
-export const useStatsStore = create<StatsState>()((set) => ({
-  games: [],
-  profile: null,
-  uploadError: null,
-  activeFileName: INITIAL_FILE_NAME,
-  collectorVisible: true,
-  diffPeriod: "weekly",
-  rollingWindow: 100,
-  rangeStart: null,
-  rangeEnd: null,
-  filterFormat: "",
-  entityFilter: null,
-  entityQuery: "",
-  visualizations: {
-    differential: true,
-    rolling: true,
-    identities: true,
-  },
-  setGames: (games) =>
-    set(() => ({
-      games,
-      profile: games.length ? detectUserProfile(games) : null,
-      filterFormat: "",
-      entityFilter: null,
-      entityQuery: "",
-      rangeStart: null,
-      rangeEnd: null,
-    })),
-  setUploadError: (message) => set({ uploadError: message }),
-  setActiveFileName: (name) => set({ activeFileName: name }),
-  setCollectorVisible: (visible) => set({ collectorVisible: visible }),
-  setRangeStart: (date) => set({ rangeStart: date }),
-  setRangeEnd: (date) => set({ rangeEnd: date }),
-  resetRange: () => set({ rangeStart: null, rangeEnd: null }),
-  setDiffPeriod: (period) => set({ diffPeriod: period }),
-  setRollingWindow: (count) => set({ rollingWindow: count }),
-  setFilterFormat: (format) => set({ filterFormat: format }),
-  setEntityFilter: (filter) => set({ entityFilter: filter }),
-  setEntityQuery: (query) => set({ entityQuery: query }),
-  setVisualization: (key, value) =>
-    set((state) => ({
-      visualizations: { ...state.visualizations, [key]: value },
-    })),
-  toggleVisualization: (key) =>
-    set((state) => ({
-      visualizations: {
-        ...state.visualizations,
-        [key]: !state.visualizations[key],
-      },
-    })),
-  resetData: () =>
-    set(() => ({
+const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object.freeze({
+  differential: true,
+  rolling: true,
+  identities: true,
+  opponents: true,
+});
+
+function mergeVisualizationDefaults(
+  overrides?: Partial<Record<VisualizationKey, boolean>> | null,
+): Record<VisualizationKey, boolean> {
+  return {
+    ...DEFAULT_VISUALIZATION_SETTINGS,
+    ...(overrides ?? {}),
+  };
+}
+
+export const useStatsStore = create<StatsState>()(
+  persist(
+    (set) => ({
       games: [],
       profile: null,
       uploadError: null,
       activeFileName: INITIAL_FILE_NAME,
       collectorVisible: true,
+      diffPeriod: "weekly",
+      rollingWindow: 100,
       rangeStart: null,
       rangeEnd: null,
       filterFormat: "",
       entityFilter: null,
       entityQuery: "",
-    })),
-}));
+      visualizations: mergeVisualizationDefaults(),
+      setGames: (games) =>
+        set(() => ({
+          games,
+          profile: games.length ? detectUserProfile(games) : null,
+          filterFormat: "",
+          entityFilter: null,
+          entityQuery: "",
+          rangeStart: null,
+          rangeEnd: null,
+        })),
+      setUploadError: (message) => set({ uploadError: message }),
+      setActiveFileName: (name) => set({ activeFileName: name }),
+      setCollectorVisible: (visible) => set({ collectorVisible: visible }),
+      setRangeStart: (date) => set({ rangeStart: date }),
+      setRangeEnd: (date) => set({ rangeEnd: date }),
+      resetRange: () => set({ rangeStart: null, rangeEnd: null }),
+      setDiffPeriod: (period) => set({ diffPeriod: period }),
+      setRollingWindow: (count) => set({ rollingWindow: count }),
+      setFilterFormat: (format) => set({ filterFormat: format }),
+      setEntityFilter: (filter) => set({ entityFilter: filter }),
+      setEntityQuery: (query) => set({ entityQuery: query }),
+      setVisualization: (key, value) =>
+        set((state) => ({
+          visualizations: { ...state.visualizations, [key]: value },
+        })),
+      toggleVisualization: (key) =>
+        set((state) => ({
+          visualizations: {
+            ...state.visualizations,
+            [key]: !state.visualizations[key],
+          },
+        })),
+      resetData: () =>
+        set(() => ({
+          games: [],
+          profile: null,
+          uploadError: null,
+          activeFileName: INITIAL_FILE_NAME,
+          collectorVisible: true,
+          rangeStart: null,
+          rangeEnd: null,
+          filterFormat: "",
+          entityFilter: null,
+          entityQuery: "",
+        })),
+    }),
+    {
+      name: "jnet-stats-visualizations",
+      partialize: (state) => ({ visualizations: state.visualizations }),
+      merge: (persisted, current) => {
+        const stored = persisted as
+          | { visualizations?: Record<VisualizationKey, boolean> }
+          | undefined;
+        return {
+          ...current,
+          visualizations: mergeVisualizationDefaults(stored?.visualizations),
+        };
+      },
+    },
+  ),
+);

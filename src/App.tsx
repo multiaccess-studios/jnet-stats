@@ -4,6 +4,7 @@ import { DifferentialSection } from "./components/DifferentialSection";
 import { HistoryCollector } from "./components/HistoryCollector";
 import { IdentityPerformanceSection } from "./components/IdentityPerformanceSection";
 import { RollingWinRateSection } from "./components/RollingWinRateSection";
+import { OpponentPerformanceSection } from "./components/OpponentPerformanceSection";
 import { TopBar } from "./components/TopBar";
 import { useStatsStore } from "./lib/store";
 import { useDataBounds } from "./lib/hooks";
@@ -45,6 +46,7 @@ export function App() {
         <DifferentialSection />
         <RollingWinRateSection />
         <IdentityPerformanceSection />
+        <OpponentPerformanceSection />
 
         <div className="flex justify-center">
           <a

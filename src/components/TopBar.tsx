@@ -39,6 +39,11 @@ const VISUALIZATION_OPTIONS: {
     label: "Identity Performance",
     description: "Chart of each identity's win rate.",
   },
+  {
+    key: "opponents",
+    label: "Opponent Performance",
+    description: "Win rates broken down by the opposing identity.",
+  },
 ];
 
 interface RoleCounts {

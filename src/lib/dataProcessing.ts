@@ -197,6 +197,100 @@ export function buildIdentityStats(
     .sort((a, b) => b.total - a.total);
 }
 
+export function buildOpponentIdentityStats(
+  games: GameRecord[],
+  username: string,
+  role: PlayerRole,
+  identityMap: IdentityMap,
+): IdentityStat[] {
+  const opponentRole: PlayerRole = role === "runner" ? "corp" : "runner";
+  const acc = new Map<
+    string,
+    {
+      wins: number;
+      total: number;
+      faction: string;
+    }
+  >();
+
+  for (const game of games) {
+    const playerRole = resolveUserRole(game, username);
+    if (playerRole !== role) continue;
+    if (game.winner === null) continue;
+
+    const opponentIdentity = game[opponentRole].identity ?? "Unknown Identity";
+    const faction = identityMap.get(opponentIdentity) ?? "UNKNOWN";
+    const bucket = acc.get(opponentIdentity) ?? { wins: 0, total: 0, faction };
+    bucket.total += 1;
+    if (game.winner === role) {
+      bucket.wins += 1;
+    }
+    bucket.faction = faction;
+    acc.set(opponentIdentity, bucket);
+  }
+
+  return Array.from(acc.entries())
+    .map(([identity, data]) => ({
+      role: opponentRole,
+      identity,
+      faction: data.faction,
+      wins: data.wins,
+      losses: data.total - data.wins,
+      total: data.total,
+      winRate: data.total ? data.wins / data.total : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+export function buildOpponentOverallStat(
+  games: GameRecord[],
+  username: string,
+  role: PlayerRole,
+): IdentityStat | null {
+  const relevant = games.filter(
+    (game) => game.winner !== null && resolveUserRole(game, username) === role,
+  );
+  if (!relevant.length) return null;
+  const wins = relevant.reduce((sum, game) => sum + (game.winner === role ? 1 : 0), 0);
+  const total = relevant.length;
+  const opponentRole: PlayerRole = role === "runner" ? "corp" : "runner";
+  return {
+    role: opponentRole,
+    identity: opponentRole === "corp" ? "Vs Corp Overall" : "Vs Runner Overall",
+    faction: opponentRole === "corp" ? "neutral_corp" : "neutral_runner",
+    wins,
+    losses: total - wins,
+    total,
+    winRate: total ? wins / total : 0,
+  };
+}
+
+export function buildCombinedOpponentStat(
+  games: GameRecord[],
+  username: string,
+): IdentityStat | null {
+  const relevant = games.filter(
+    (game) =>
+      game.winner !== null &&
+      (game.runner.username === username || game.corp.username === username),
+  );
+  if (!relevant.length) return null;
+  const wins = relevant.reduce((sum, game) => {
+    const role = resolveUserRole(game, username);
+    return sum + (role && game.winner === role ? 1 : 0);
+  }, 0);
+  const total = relevant.length;
+  return {
+    role: "runner",
+    identity: "Vs Overall",
+    faction: "neutral",
+    wins,
+    losses: total - wins,
+    total,
+    winRate: total ? wins / total : 0,
+  };
+}
+
 function normalizeGame(rawGame: RawGameRecord): GameRecord {
   const completedAt = parseDate(
     rawGame?.["end-date"] ?? rawGame?.["start-date"] ?? rawGame?.["creation-date"],

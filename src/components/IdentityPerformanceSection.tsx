@@ -9,9 +9,8 @@ import {
 import { getShortIdentityName } from "../lib/identityNames";
 import { useStatsStore } from "../lib/store";
 import { useFilteredGames } from "../lib/hooks";
-import { FACTION_CLASS_MAP, IDENTITY_MAP } from "../lib/staticMaps";
-import { VisualizationCard } from "./VisualizationCard";
-import { WinRateChart } from "./WinRateChart";
+import { IDENTITY_MAP } from "../lib/staticMaps";
+import { WinRateSection } from "./WinRateSection";
 
 export function IdentityPerformanceSection() {
   const games = useStatsStore((state) => state.games);
@@ -83,24 +82,15 @@ export function IdentityPerformanceSection() {
     [combinedStats],
   );
 
-  const metaContent = combinedStats.length ? (
-    <>
-      Played identities: <span className="font-semibold text-white">{combinedStats.length}</span>
-    </>
-  ) : (
-    "No games match the current filters."
-  );
-
-  if (!visible) return null;
-
   return (
-    <VisualizationCard
+    <WinRateSection
       title="Identity performance overview"
-      meta={metaContent}
-      footer={combinedStats.length === 0 ? "Try relaxing your filters to see results." : null}
-    >
-      <WinRateChart stats={displayStats} factionClasses={FACTION_CLASS_MAP} />
-    </VisualizationCard>
+      stats={displayStats}
+      visible={visible}
+      metaLabel="Played identities"
+      metaDescription="Bar height shows how often you win with that identity."
+      emptyFooter="Try relaxing your filters to see results."
+    />
   );
 }
 
