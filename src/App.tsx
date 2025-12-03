@@ -7,6 +7,7 @@ import { RollingWinRateSection } from "./components/RollingWinRateSection";
 import { OpponentPerformanceSection } from "./components/OpponentPerformanceSection";
 import { UniqueAccessesSection } from "./components/UniqueAccessesSection";
 import { CorpAccessesSection } from "./components/CorpAccessesSection";
+import { TurnsHistogramSection } from "./components/TurnsHistogramSection";
 import { TopBar } from "./components/TopBar";
 import { useStatsStore } from "./lib/store";
 import { useDataBounds } from "./lib/hooks";
@@ -49,6 +50,7 @@ export function App() {
         <RollingWinRateSection />
         <UniqueAccessesSection />
         <CorpAccessesSection />
+        <TurnsHistogramSection />
         <IdentityPerformanceSection />
         <OpponentPerformanceSection />
 

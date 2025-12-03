@@ -1,30 +1,30 @@
 import { useMemo } from "react";
-import { buildCorpAccessBuckets } from "../lib/dataProcessing";
+import { buildTurnBuckets } from "../lib/dataProcessing";
 import { useFilteredGames } from "../lib/hooks";
 import { useStatsStore, type UniqueAccessTopSegment } from "../lib/store";
 import { WinLossHistogramChart } from "./WinLossHistogramChart";
 import { VisualizationCard } from "./VisualizationCard";
 
-export function CorpAccessesSection() {
+export function TurnsHistogramSection() {
   const games = useStatsStore((state) => state.games);
   const profile = useStatsStore((state) => state.profile);
-  const showCorpAccesses = useStatsStore((state) => state.visualizations.corpAccesses);
-  const uniqueAccessTopSegment = useStatsStore((state) => state.uniqueAccessTopSegmentCorp);
-  const setUniqueAccessTopSegment = useStatsStore((state) => state.setUniqueAccessTopSegmentCorp);
+  const showTurns = useStatsStore((state) => state.visualizations.turns);
+  const turnTopSegment = useStatsStore((state) => state.turnTopSegment);
+  const setTurnTopSegment = useStatsStore((state) => state.setTurnTopSegment);
   const { filteredGames } = useFilteredGames();
 
   const rawData = useMemo(() => {
     if (!profile) return [];
-    return buildCorpAccessBuckets(filteredGames, profile.username);
+    return buildTurnBuckets(filteredGames, profile.username);
   }, [filteredGames, profile]);
 
   const data = useMemo(() => {
     if (!rawData.length) return [];
     const map = new Map(rawData.map((bucket) => [bucket.value, bucket]));
-    const minAccesses = rawData[0].value;
-    const maxAccesses = rawData[rawData.length - 1].value;
+    const minTurns = rawData[0].value;
+    const maxTurns = rawData[rawData.length - 1].value;
     const filled = [];
-    for (let value = minAccesses; value <= maxAccesses; value += 1) {
+    for (let value = minTurns; value <= maxTurns; value += 1) {
       filled.push(
         map.get(value) ?? {
           value,
@@ -37,29 +37,27 @@ export function CorpAccessesSection() {
     return filled;
   }, [rawData]);
 
-  const totalCorpGames = useMemo(() => data.reduce((sum, bucket) => sum + bucket.total, 0), [data]);
+  const totalSamples = useMemo(() => data.reduce((sum, bucket) => sum + bucket.total, 0), [data]);
 
-  const visible = games.length > 0 && showCorpAccesses;
+  const visible = games.length > 0 && showTurns;
   if (!visible) return null;
 
   return (
     <VisualizationCard
-      title="Accesses faced as corp"
-      description="Shows how often opponents access unique cards against you while you are the corp."
+      title="Turns to finish"
+      description="Histogram of how many turns your games lasted, colored by win/loss."
       meta={
         <span>
-          Corp samples counted:{" "}
-          <span className="font-semibold text-white">{totalCorpGames.toLocaleString()}</span>
+          Games counted:{" "}
+          <span className="font-semibold text-white">{totalSamples.toLocaleString()}</span>
         </span>
       }
       actions={
         <label className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
           <span>Stack top</span>
           <select
-            value={uniqueAccessTopSegment}
-            onChange={(event) =>
-              setUniqueAccessTopSegment(event.target.value as UniqueAccessTopSegment)
-            }
+            value={turnTopSegment}
+            onChange={(event) => setTurnTopSegment(event.target.value as UniqueAccessTopSegment)}
             className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
           >
             <option value="wins">Wins on top</option>
@@ -68,11 +66,7 @@ export function CorpAccessesSection() {
         </label>
       }
     >
-      <WinLossHistogramChart
-        data={data}
-        topSegment={uniqueAccessTopSegment}
-        xLabel="Unique accesses against you"
-      />
+      <WinLossHistogramChart data={data} topSegment={turnTopSegment} xLabel="Turns before end" />
     </VisualizationCard>
   );
 }

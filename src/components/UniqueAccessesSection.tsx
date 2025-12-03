@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { buildRunnerUniqueAccessBuckets } from "../lib/dataProcessing";
 import { useFilteredGames } from "../lib/hooks";
 import { useStatsStore, type UniqueAccessTopSegment } from "../lib/store";
-import { UniqueAccessesChart } from "./UniqueAccessesChart";
+import { WinLossHistogramChart } from "./WinLossHistogramChart";
 import { VisualizationCard } from "./VisualizationCard";
 
 export function UniqueAccessesSection() {
@@ -20,14 +20,14 @@ export function UniqueAccessesSection() {
 
   const data = useMemo(() => {
     if (!rawData.length) return [];
-    const map = new Map(rawData.map((bucket) => [bucket.uniqueAccesses, bucket]));
-    const minAccesses = rawData[0].uniqueAccesses;
-    const maxAccesses = rawData[rawData.length - 1].uniqueAccesses;
+    const map = new Map(rawData.map((bucket) => [bucket.value, bucket]));
+    const minAccesses = rawData[0].value;
+    const maxAccesses = rawData[rawData.length - 1].value;
     const filled = [];
     for (let value = minAccesses; value <= maxAccesses; value += 1) {
       filled.push(
         map.get(value) ?? {
-          uniqueAccesses: value,
+          value,
           wins: 0,
           losses: 0,
           total: 0,
@@ -72,7 +72,11 @@ export function UniqueAccessesSection() {
       }
       footer="Accesses in Archives are not counted, even if they were not previously accessed."
     >
-      <UniqueAccessesChart data={data} topSegment={uniqueAccessTopSegment} />
+      <WinLossHistogramChart
+        data={data}
+        topSegment={uniqueAccessTopSegment}
+        xLabel="Unique runner accesses"
+      />
     </VisualizationCard>
   );
 }

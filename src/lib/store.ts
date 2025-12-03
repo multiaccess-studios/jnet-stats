@@ -29,6 +29,7 @@ interface StatsState {
   visualizations: Record<VisualizationKey, boolean>;
   uniqueAccessTopSegmentRunner: UniqueAccessTopSegment;
   uniqueAccessTopSegmentCorp: UniqueAccessTopSegment;
+  turnTopSegment: UniqueAccessTopSegment;
   setGames: (games: GameRecord[]) => void;
   setUploadError: (message: string | null) => void;
   setActiveFileName: (name: string) => void;
@@ -45,6 +46,7 @@ interface StatsState {
   toggleVisualization: (key: VisualizationKey) => void;
   setUniqueAccessTopSegmentRunner: (value: UniqueAccessTopSegment) => void;
   setUniqueAccessTopSegmentCorp: (value: UniqueAccessTopSegment) => void;
+  setTurnTopSegment: (value: UniqueAccessTopSegment) => void;
   resetData: () => void;
 }
 
@@ -55,7 +57,8 @@ export type VisualizationKey =
   | "identities"
   | "opponents"
   | "uniqueAccesses"
-  | "corpAccesses";
+  | "corpAccesses"
+  | "turns";
 export type UniqueAccessTopSegment = "wins" | "losses";
 
 const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object.freeze({
@@ -65,6 +68,7 @@ const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object
   opponents: true,
   uniqueAccesses: true,
   corpAccesses: false,
+  turns: false,
 });
 
 function mergeVisualizationDefaults(
@@ -94,6 +98,7 @@ export const useStatsStore = create<StatsState>()(
       visualizations: mergeVisualizationDefaults(),
       uniqueAccessTopSegmentRunner: "wins",
       uniqueAccessTopSegmentCorp: "losses",
+      turnTopSegment: "wins",
       setGames: (games) =>
         set(() => ({
           games,
@@ -128,6 +133,7 @@ export const useStatsStore = create<StatsState>()(
         })),
       setUniqueAccessTopSegmentRunner: (value) => set({ uniqueAccessTopSegmentRunner: value }),
       setUniqueAccessTopSegmentCorp: (value) => set({ uniqueAccessTopSegmentCorp: value }),
+      setTurnTopSegment: (value) => set({ turnTopSegment: value }),
       resetData: () =>
         set(() => ({
           games: [],
@@ -148,6 +154,7 @@ export const useStatsStore = create<StatsState>()(
         visualizations: state.visualizations,
         uniqueAccessTopSegmentRunner: state.uniqueAccessTopSegmentRunner,
         uniqueAccessTopSegmentCorp: state.uniqueAccessTopSegmentCorp,
+        turnTopSegment: state.turnTopSegment,
       }),
       merge: (persisted, current) => {
         const stored = persisted as
@@ -155,6 +162,7 @@ export const useStatsStore = create<StatsState>()(
               visualizations?: Record<VisualizationKey, boolean>;
               uniqueAccessTopSegmentRunner?: UniqueAccessTopSegment;
               uniqueAccessTopSegmentCorp?: UniqueAccessTopSegment;
+              turnTopSegment?: UniqueAccessTopSegment;
             }
           | undefined;
         return {
@@ -164,6 +172,7 @@ export const useStatsStore = create<StatsState>()(
             stored?.uniqueAccessTopSegmentRunner ?? current.uniqueAccessTopSegmentRunner,
           uniqueAccessTopSegmentCorp:
             stored?.uniqueAccessTopSegmentCorp ?? current.uniqueAccessTopSegmentCorp,
+          turnTopSegment: stored?.turnTopSegment ?? current.turnTopSegment,
         };
       },
     },

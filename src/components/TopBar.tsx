@@ -45,6 +45,11 @@ const VISUALIZATION_OPTIONS: {
     description: "Runner accesses against you broken down by win/loss as corp.",
   },
   {
+    key: "turns",
+    label: "Turns to finish",
+    description: "Histogram of how long your games last.",
+  },
+  {
     key: "identities",
     label: "Identity Performance",
     description: "Chart of each identity's win rate.",

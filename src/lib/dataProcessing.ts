@@ -14,6 +14,7 @@ export interface GameRecord {
   completedAt: Date | null;
   format: string | null;
   runnerUniqueAccesses: number | null;
+  turnCount: number | null;
 }
 
 export interface UserProfile {
@@ -51,6 +52,7 @@ type RawGameRecord =
       ["start-date"]?: unknown;
       ["creation-date"]?: unknown;
       stats?: unknown;
+      turn?: unknown;
     }
   | null
   | undefined;
@@ -100,8 +102,8 @@ export interface DifferentialFilters {
   identity?: string;
 }
 
-export interface UniqueAccessBucket {
-  uniqueAccesses: number;
+export interface OutcomeBucket {
+  value: number;
   wins: number;
   losses: number;
   total: number;
@@ -311,6 +313,7 @@ function normalizeGame(rawGame: RawGameRecord): GameRecord {
     completedAt,
     format: typeof rawGame?.format === "string" ? rawGame.format.trim().toLowerCase() : null,
     runnerUniqueAccesses: parseRunnerUniqueAccesses(rawGame),
+    turnCount: parseTurnCount(rawGame?.turn),
   };
 }
 
@@ -361,6 +364,19 @@ function parseRunnerUniqueAccesses(rawGame: RawGameRecord): number | null {
   }
   if (typeof uniqueCards === "number" && Number.isFinite(uniqueCards) && uniqueCards >= 0) {
     return Math.floor(uniqueCards);
+  }
+  return null;
+}
+
+function parseTurnCount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return Math.floor(parsed);
+    }
   }
   return null;
 }
@@ -527,7 +543,7 @@ export function buildRollingWinRate(
 export function buildRunnerUniqueAccessBuckets(
   games: GameRecord[],
   username: string,
-): UniqueAccessBucket[] {
+): OutcomeBucket[] {
   if (!games.length) return [];
   const buckets = new Map<number, { wins: number; losses: number }>();
   for (const game of games) {
@@ -546,18 +562,15 @@ export function buildRunnerUniqueAccessBuckets(
 
   return Array.from(buckets.entries())
     .map(([uniqueAccesses, { wins, losses }]) => ({
-      uniqueAccesses,
+      value: uniqueAccesses,
       wins,
       losses,
       total: wins + losses,
     }))
-    .sort((a, b) => a.uniqueAccesses - b.uniqueAccesses);
+    .sort((a, b) => a.value - b.value);
 }
 
-export function buildCorpAccessBuckets(
-  games: GameRecord[],
-  username: string,
-): UniqueAccessBucket[] {
+export function buildCorpAccessBuckets(games: GameRecord[], username: string): OutcomeBucket[] {
   if (!games.length) return [];
   const buckets = new Map<number, { wins: number; losses: number }>();
   for (const game of games) {
@@ -575,12 +588,37 @@ export function buildCorpAccessBuckets(
   }
   return Array.from(buckets.entries())
     .map(([uniqueAccesses, { wins, losses }]) => ({
-      uniqueAccesses,
+      value: uniqueAccesses,
       wins,
       losses,
       total: wins + losses,
     }))
-    .sort((a, b) => a.uniqueAccesses - b.uniqueAccesses);
+    .sort((a, b) => a.value - b.value);
+}
+
+export function buildTurnBuckets(games: GameRecord[], username: string): OutcomeBucket[] {
+  if (!games.length) return [];
+  const buckets = new Map<number, { wins: number; losses: number }>();
+  for (const game of games) {
+    if (game.turnCount === null || game.winner === null) continue;
+    const role = resolveUserRole(game, username);
+    if (!role) continue;
+    const current = buckets.get(game.turnCount) ?? { wins: 0, losses: 0 };
+    if (game.winner === role) {
+      current.wins += 1;
+    } else {
+      current.losses += 1;
+    }
+    buckets.set(game.turnCount, current);
+  }
+  return Array.from(buckets.entries())
+    .map(([turnCount, { wins, losses }]) => ({
+      value: turnCount,
+      wins,
+      losses,
+      total: wins + losses,
+    }))
+    .sort((a, b) => a.value - b.value);
 }
 
 function truncateToPeriod(date: Date, period: AggregationPeriod) {

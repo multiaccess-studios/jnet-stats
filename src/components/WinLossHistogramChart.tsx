@@ -1,14 +1,15 @@
 import { axisBottom, axisLeft, max, scaleBand, scaleLinear, select } from "d3";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UniqueAccessBucket } from "../lib/dataProcessing";
+import type { OutcomeBucket } from "../lib/dataProcessing";
 import type { UniqueAccessTopSegment } from "../lib/store";
 
-interface UniqueAccessesChartProps {
-  data: UniqueAccessBucket[];
+interface WinLossHistogramChartProps {
+  data: OutcomeBucket[];
   topSegment: UniqueAccessTopSegment;
+  xLabel: string;
 }
 
-export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartProps) {
+export function WinLossHistogramChart({ data, topSegment, xLabel }: WinLossHistogramChartProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(960);
@@ -54,7 +55,7 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
     svg.attr("viewBox", `0 0 ${Math.max(width, 320)} ${height}`);
     svg.attr("height", height);
 
-    const xDomain = data.map((bucket) => bucket.uniqueAccesses.toString());
+    const xDomain = data.map((bucket) => bucket.value.toString());
     const xScale = scaleBand<string>().domain(xDomain).range([0, innerWidth]).padding(0.2);
     const yScale = scaleLinear()
       .domain([0, (maxTotal || 1) * 1.05])
@@ -69,20 +70,17 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
       .tickFormat(() => "");
     chart
       .append("g")
-      .attr("class", "text-slate-700")
+      .attr("class", "text-slate-800")
       .call(grid)
       .call((g) => g.select(".domain").remove())
-      .call((g) => g.selectAll("line").attr("stroke", "currentColor").attr("stroke-opacity", 0.25));
+      .call((g) => g.selectAll("line").attr("stroke", "currentColor").attr("stroke-opacity", 0.15));
 
     const bars = chart.append("g");
     bars
       .selectAll("g")
       .data(data)
       .join("g")
-      .attr(
-        "transform",
-        (bucket) => `translate(${xScale(bucket.uniqueAccesses.toString()) ?? 0},0)`,
-      )
+      .attr("transform", (bucket) => `translate(${xScale(bucket.value.toString()) ?? 0},0)`)
       .each(function (bucket) {
         const group = select(this);
         const bandwidth = xScale.bandwidth();
@@ -189,13 +187,11 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
       .call(xAxis);
     xAxisGroup
       .selectAll("text")
-      .attr("class", "text-xs fill-slate-300")
+      .attr("class", "text-xs fill-slate-400")
       .attr("dy", "0.75em")
-      .attr("dx", "-0.5em")
-      .attr("transform", "rotate(-35)")
-      .style("text-anchor", "end");
+      .style("text-anchor", "middle");
     xAxisGroup.selectAll("line").remove();
-    xAxisGroup.selectAll("path").attr("stroke", "currentColor").attr("class", "text-slate-700");
+    xAxisGroup.selectAll("path").attr("class", "stroke-white/60");
 
     chart
       .append("text")
@@ -203,12 +199,12 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
       .attr("y", innerHeight + 44)
       .attr("text-anchor", "middle")
       .attr("class", "text-xs fill-slate-300 uppercase tracking-wide")
-      .text("Unique runner accesses");
+      .text(xLabel);
 
     const yAxis = axisLeft(yScale).ticks(Math.min(8, maxTotal || 1));
     const yAxisGroup = chart.append("g").call(yAxis);
-    yAxisGroup.selectAll("text").attr("class", "text-xs fill-slate-300");
-    yAxisGroup.selectAll("path").remove();
+    yAxisGroup.selectAll("text").attr("class", "text-xs fill-slate-400");
+    yAxisGroup.selectAll("path").attr("class", "stroke-white/60");
     yAxisGroup.selectAll("line").remove();
 
     chart
@@ -220,13 +216,13 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
       .attr("class", "text-xs fill-slate-300 uppercase tracking-wide")
       .text("Games");
 
-    const legend = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-    const entries = [
-      { label: "Losses", className: "fill-rose-500/70" },
-      { label: "Wins", className: "fill-emerald-400/80" },
-    ];
-    entries.forEach((entry, index) => {
-      const legendItem = legend.append("g").attr("transform", `translate(${index * 120},-8)`);
+    const legend = svg.append("g").attr("transform", `translate(${width - 110},${margin.top})`);
+    const legendOrder: Array<"losses" | "wins"> =
+      topSegment === "wins" ? ["wins", "losses"] : ["losses", "wins"];
+    legendOrder.forEach((role, index) => {
+      const entryLabel = role === "wins" ? "Wins" : "Losses";
+      const entryClass = role === "wins" ? "fill-emerald-400/80" : "fill-rose-500/70";
+      const legendItem = legend.append("g").attr("transform", `translate(0,${index * 18})`);
       legendItem
         .append("rect")
         .attr("x", 0)
@@ -234,15 +230,15 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
         .attr("width", 12)
         .attr("height", 12)
         .attr("rx", 3)
-        .attr("class", entry.className);
+        .attr("class", entryClass);
       legendItem
         .append("text")
         .attr("x", 18)
         .attr("y", 10)
         .attr("class", "text-xs fill-slate-300")
-        .text(entry.label);
+        .text(entryLabel);
     });
-  }, [data, maxTotal, topSegment, width]);
+  }, [data, maxTotal, topSegment, width, xLabel]);
 
   return (
     <div ref={wrapperRef} className="w-full">
@@ -250,7 +246,7 @@ export function UniqueAccessesChart({ data, topSegment }: UniqueAccessesChartPro
         ref={svgRef}
         className="w-full overflow-visible"
         role="img"
-        aria-label="Unique accesses to win chart"
+        aria-label={`${xLabel} chart`}
       />
     </div>
   );
