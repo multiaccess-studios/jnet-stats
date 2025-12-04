@@ -3,13 +3,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { OutcomeBucket } from "../lib/dataProcessing";
 import type { UniqueAccessTopSegment } from "../lib/store";
 
-interface WinLossHistogramChartProps {
-  data: OutcomeBucket[];
+interface WinLossHistogramChartProps<T extends OutcomeBucket = OutcomeBucket> {
+  data: T[];
   topSegment: UniqueAccessTopSegment;
   xLabel: string;
+  getLabel?: (bucket: T) => string;
 }
 
-export function WinLossHistogramChart({ data, topSegment, xLabel }: WinLossHistogramChartProps) {
+export function WinLossHistogramChart<T extends OutcomeBucket = OutcomeBucket>({
+  data,
+  topSegment,
+  xLabel,
+  getLabel,
+}: WinLossHistogramChartProps<T>) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(960);
@@ -55,7 +61,7 @@ export function WinLossHistogramChart({ data, topSegment, xLabel }: WinLossHisto
     svg.attr("viewBox", `0 0 ${Math.max(width, 320)} ${height}`);
     svg.attr("height", height);
 
-    const xDomain = data.map((bucket) => bucket.value.toString());
+    const xDomain = data.map((bucket) => (getLabel ? getLabel(bucket) : bucket.value.toString()));
     const xScale = scaleBand<string>().domain(xDomain).range([0, innerWidth]).padding(0.2);
     const yScale = scaleLinear()
       .domain([0, (maxTotal || 1) * 1.05])
@@ -80,7 +86,10 @@ export function WinLossHistogramChart({ data, topSegment, xLabel }: WinLossHisto
       .selectAll("g")
       .data(data)
       .join("g")
-      .attr("transform", (bucket) => `translate(${xScale(bucket.value.toString()) ?? 0},0)`)
+      .attr("transform", (bucket) => {
+        const key = getLabel ? getLabel(bucket) : bucket.value.toString();
+        return `translate(${xScale(key) ?? 0},0)`;
+      })
       .each(function (bucket) {
         const group = select(this);
         const bandwidth = xScale.bandwidth();
@@ -238,7 +247,7 @@ export function WinLossHistogramChart({ data, topSegment, xLabel }: WinLossHisto
         .attr("class", "text-xs fill-slate-300")
         .text(entryLabel);
     });
-  }, [data, maxTotal, topSegment, width, xLabel]);
+  }, [data, getLabel, maxTotal, topSegment, width, xLabel]);
 
   return (
     <div ref={wrapperRef} className="w-full">

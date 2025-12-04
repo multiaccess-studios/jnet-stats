@@ -37,7 +37,6 @@ export function useFilteredGames() {
   const rangeEnd = useStatsStore((state) => state.rangeEnd);
   const entityFilter = useStatsStore((state) => state.entityFilter);
   const profile = useStatsStore((state) => state.profile);
-  const username = profile?.username ?? null;
 
   return useMemo(() => {
     const parsedRangeStart = rangeStart ? startOfDay(rangeStart) : null;
@@ -57,7 +56,9 @@ export function useFilteredGames() {
       return true;
     });
 
-    if (!entityFilter || !username) {
+    const usernames = profile?.usernames ?? [];
+
+    if (!entityFilter || usernames.length === 0) {
       return {
         baseFilteredGames,
         filteredGames: baseFilteredGames,
@@ -67,7 +68,7 @@ export function useFilteredGames() {
     }
 
     const filteredGames = baseFilteredGames.filter((game) => {
-      const role = resolveUserRole(game, username);
+      const role = resolveUserRole(game, usernames);
       if (!role) return false;
       if (entityFilter.type === "side") {
         return role === entityFilter.value;
@@ -89,16 +90,16 @@ export function useFilteredGames() {
       parsedRangeStart,
       parsedRangeEnd,
     };
-  }, [entityFilter, filterFormat, games, rangeEnd, rangeStart, username]);
+  }, [entityFilter, filterFormat, games, profile, rangeEnd, rangeStart]);
 }
 
 export function useDifferentialPoints(games: GameRecord[]) {
   const profile = useStatsStore((state) => state.profile);
-  const username = profile?.username ?? null;
   return useMemo<DifferentialPoint[]>(() => {
-    if (!username) return [];
-    return buildDifferentialTimeline(games, username, IDENTITY_MAP);
-  }, [games, username]);
+    const usernames = profile?.usernames ?? [];
+    if (!usernames.length) return [];
+    return buildDifferentialTimeline(games, usernames, IDENTITY_MAP);
+  }, [games, profile]);
 }
 
 export function useClampedRange(date: Date | null) {

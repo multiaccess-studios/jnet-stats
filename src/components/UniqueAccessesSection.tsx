@@ -15,13 +15,13 @@ export function UniqueAccessesSection() {
 
   const rawData = useMemo(() => {
     if (!profile) return [];
-    return buildRunnerUniqueAccessBuckets(filteredGames, profile.username);
+    return buildRunnerUniqueAccessBuckets(filteredGames, profile.usernames);
   }, [filteredGames, profile]);
 
   const data = useMemo(() => {
     if (!rawData.length) return [];
     const map = new Map(rawData.map((bucket) => [bucket.value, bucket]));
-    const minAccesses = rawData[0].value;
+    const minAccesses = Math.min(0, rawData[0].value);
     const maxAccesses = rawData[rawData.length - 1].value;
     const filled = [];
     for (let value = minAccesses; value <= maxAccesses; value += 1) {
@@ -51,7 +51,7 @@ export function UniqueAccessesSection() {
       description="Runner-only view of how many different cards you accessed before each result."
       meta={
         <span>
-          Runner samples counted:{" "}
+          Runner games:{" "}
           <span className="font-semibold text-white">{totalRunnerGames.toLocaleString()}</span>
         </span>
       }

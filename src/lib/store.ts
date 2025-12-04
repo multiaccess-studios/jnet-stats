@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  detectUserProfile,
   type AggregationPeriod,
   type GameRecord,
+  type HistogramPeriod,
   type PlayerRole,
   type UserProfile,
 } from "./dataProcessing";
@@ -16,10 +16,12 @@ export type GlobalEntityFilter =
 interface StatsState {
   games: GameRecord[];
   profile: UserProfile | null;
+  playerSources: PlayerSourceSummary[];
   uploadError: string | null;
   activeFileName: string;
   collectorVisible: boolean;
   diffPeriod: AggregationPeriod;
+  gamesPlayedPeriod: HistogramPeriod;
   rollingWindow: number;
   rangeStart: Date | null;
   rangeEnd: Date | null;
@@ -31,7 +33,7 @@ interface StatsState {
   uniqueAccessTopSegmentCorp: UniqueAccessTopSegment;
   turnTopSegment: UniqueAccessTopSegment;
   winRateSortOrder: WinRateSortOrder;
-  setGames: (games: GameRecord[]) => void;
+  setGames: (payload: LoadedGamePayload) => void;
   setUploadError: (message: string | null) => void;
   setActiveFileName: (name: string) => void;
   setCollectorVisible: (visible: boolean) => void;
@@ -39,6 +41,7 @@ interface StatsState {
   setRangeEnd: (date: Date | null) => void;
   resetRange: () => void;
   setDiffPeriod: (period: AggregationPeriod) => void;
+  setGamesPlayedPeriod: (period: HistogramPeriod) => void;
   setRollingWindow: (count: number) => void;
   setFilterFormat: (format: string) => void;
   setEntityFilter: (filter: GlobalEntityFilter | null) => void;
@@ -53,6 +56,16 @@ interface StatsState {
 }
 
 const INITIAL_FILE_NAME = "No file selected";
+export interface PlayerSourceSummary {
+  name: string | null;
+  fileName: string;
+  totalGames: number;
+}
+export interface LoadedGamePayload {
+  games: GameRecord[];
+  profile: UserProfile | null;
+  sources: PlayerSourceSummary[];
+}
 export type VisualizationKey =
   | "differential"
   | "rolling"
@@ -60,7 +73,8 @@ export type VisualizationKey =
   | "opponents"
   | "uniqueAccesses"
   | "corpAccesses"
-  | "turns";
+  | "turns"
+  | "monthlyTotals";
 export type UniqueAccessTopSegment = "wins" | "losses";
 export type WinRateSortOrder = "games-desc" | "games-asc" | "winRate-desc" | "winRate-asc";
 
@@ -72,6 +86,7 @@ const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object
   uniqueAccesses: true,
   corpAccesses: false,
   turns: false,
+  monthlyTotals: true,
 });
 
 function mergeVisualizationDefaults(
@@ -88,10 +103,12 @@ export const useStatsStore = create<StatsState>()(
     (set) => ({
       games: [],
       profile: null,
+      playerSources: [],
       uploadError: null,
       activeFileName: INITIAL_FILE_NAME,
       collectorVisible: true,
       diffPeriod: "weekly",
+      gamesPlayedPeriod: "monthly",
       rollingWindow: 100,
       rangeStart: null,
       rangeEnd: null,
@@ -103,10 +120,11 @@ export const useStatsStore = create<StatsState>()(
       uniqueAccessTopSegmentCorp: "losses",
       turnTopSegment: "wins",
       winRateSortOrder: "games-desc",
-      setGames: (games) =>
+      setGames: (payload) =>
         set(() => ({
-          games,
-          profile: games.length ? detectUserProfile(games) : null,
+          games: payload.games,
+          profile: payload.profile,
+          playerSources: payload.sources,
           filterFormat: "",
           entityFilter: null,
           entityQuery: "",
@@ -120,6 +138,7 @@ export const useStatsStore = create<StatsState>()(
       setRangeEnd: (date) => set({ rangeEnd: date }),
       resetRange: () => set({ rangeStart: null, rangeEnd: null }),
       setDiffPeriod: (period) => set({ diffPeriod: period }),
+      setGamesPlayedPeriod: (period) => set({ gamesPlayedPeriod: period }),
       setRollingWindow: (count) => set({ rollingWindow: count }),
       setFilterFormat: (format) => set({ filterFormat: format }),
       setEntityFilter: (filter) => set({ entityFilter: filter }),
@@ -143,6 +162,7 @@ export const useStatsStore = create<StatsState>()(
         set(() => ({
           games: [],
           profile: null,
+          playerSources: [],
           uploadError: null,
           activeFileName: INITIAL_FILE_NAME,
           collectorVisible: true,
@@ -161,6 +181,7 @@ export const useStatsStore = create<StatsState>()(
         uniqueAccessTopSegmentCorp: state.uniqueAccessTopSegmentCorp,
         turnTopSegment: state.turnTopSegment,
         winRateSortOrder: state.winRateSortOrder,
+        gamesPlayedPeriod: state.gamesPlayedPeriod,
       }),
       merge: (persisted, current) => {
         const stored = persisted as
@@ -170,6 +191,7 @@ export const useStatsStore = create<StatsState>()(
               uniqueAccessTopSegmentCorp?: UniqueAccessTopSegment;
               turnTopSegment?: UniqueAccessTopSegment;
               winRateSortOrder?: WinRateSortOrder;
+              gamesPlayedPeriod?: HistogramPeriod;
             }
           | undefined;
         return {
@@ -181,6 +203,7 @@ export const useStatsStore = create<StatsState>()(
             stored?.uniqueAccessTopSegmentCorp ?? current.uniqueAccessTopSegmentCorp,
           turnTopSegment: stored?.turnTopSegment ?? current.turnTopSegment,
           winRateSortOrder: stored?.winRateSortOrder ?? current.winRateSortOrder,
+          gamesPlayedPeriod: stored?.gamesPlayedPeriod ?? current.gamesPlayedPeriod,
         };
       },
     },

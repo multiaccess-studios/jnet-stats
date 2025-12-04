@@ -17,7 +17,7 @@ interface WinRateSectionProps {
   stats: IdentityStat[];
   visible: boolean;
   metaLabel: string;
-  metaDescription?: string;
+  description?: ReactNode;
   emptyMessage?: ReactNode;
   emptyFooter?: ReactNode;
 }
@@ -27,7 +27,7 @@ export function WinRateSection({
   stats,
   visible,
   metaLabel,
-  metaDescription,
+  description,
   emptyMessage = "No games match the current filters.",
   emptyFooter = "Try relaxing your filters to see results.",
 }: WinRateSectionProps) {
@@ -51,14 +51,6 @@ export function WinRateSection({
         {metaLabel}:{" "}
         <span className="font-semibold text-white">{stats.length.toLocaleString()}</span>
       </span>
-      {metaDescription ? (
-        <>
-          <span className="text-slate-600" aria-hidden="true">
-            &bull;
-          </span>
-          <span className="text-xs text-slate-300">{metaDescription}</span>
-        </>
-      ) : null}
     </div>
   ) : (
     emptyMessage
@@ -83,7 +75,13 @@ export function WinRateSection({
   ) : null;
 
   return (
-    <VisualizationCard title={title} meta={metaContent} footer={footer} actions={actions}>
+    <VisualizationCard
+      title={title}
+      description={description}
+      meta={metaContent}
+      footer={footer}
+      actions={actions}
+    >
       <WinRateChart stats={sortedStats} factionClasses={FACTION_CLASS_MAP} />
     </VisualizationCard>
   );

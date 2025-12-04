@@ -5,6 +5,7 @@ interface DateRangeSliderProps {
   minDate?: Date | null;
   maxDate?: Date | null;
   onChange: (nextStart: Date | null, nextEnd: Date | null) => void;
+  onReset?: () => void;
   valueStart: Date | null;
   valueEnd: Date | null;
 }
@@ -17,6 +18,7 @@ export function DateRangeSlider({
   minDate,
   maxDate,
   onChange,
+  onReset,
   valueStart,
   valueEnd,
 }: DateRangeSliderProps) {
@@ -49,11 +51,27 @@ export function DateRangeSlider({
     onChange(startDate, endDate);
   };
 
+  const atMin = !valueStart || valueStart.getTime() <= bounds.min.getTime();
+  const atMax = !valueEnd || valueEnd.getTime() >= bounds.max.getTime();
+  const isFullRange = atMin && atMax;
+  const showReset = typeof onReset === "function" && !isFullRange;
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-between text-xs text-slate-400">
-        <span>{formatDateLabel(bounds.min)}</span>
-        <span>{formatDateLabel(bounds.max)}</span>
+      <div className="flex items-center text-xs text-slate-400">
+        <span className="flex-none">{formatDateLabel(bounds.min)}</span>
+        <div className="flex-1 text-center">
+          {showReset && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="text-[11px] font-semibold text-emerald-300 underline-offset-2 hover:text-emerald-200 hover:underline"
+            >
+              Clear range
+            </button>
+          )}
+        </div>
+        <span className="flex-none text-right">{formatDateLabel(bounds.max)}</span>
       </div>
       <Range
         values={values}

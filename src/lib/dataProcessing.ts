@@ -8,6 +8,7 @@ export interface RoleSnapshot {
 }
 
 export interface GameRecord {
+  gameId: string | null;
   winner: PlayerRole | null;
   runner: RoleSnapshot;
   corp: RoleSnapshot;
@@ -19,6 +20,7 @@ export interface GameRecord {
 
 export interface UserProfile {
   username: string;
+  usernames: string[];
   totalGames: number;
   runnerGames: number;
   corpGames: number;
@@ -44,6 +46,7 @@ type RawRoleSnapshot =
 
 type RawGameRecord =
   | {
+      gameid?: unknown;
       winner?: unknown;
       runner?: RawRoleSnapshot;
       corp?: RawRoleSnapshot;
@@ -70,6 +73,7 @@ export interface IdentityStat {
 export type IdentityMap = Map<string, string>;
 export type FactionColourMap = Map<string, string>;
 export type AggregationPeriod = "daily" | "weekly" | "monthly";
+export type HistogramPeriod = "daily" | "weekly" | "monthly" | "yearly";
 
 export interface DifferentialPoint {
   date: Date;
@@ -107,6 +111,12 @@ export interface OutcomeBucket {
   wins: number;
   losses: number;
   total: number;
+}
+
+export interface GamesPlayedBucket extends OutcomeBucket {
+  label: string;
+  date: Date;
+  draws: number;
 }
 
 export function parseGameHistoryText(raw: string): GameRecord[] {
@@ -155,6 +165,7 @@ export function detectUserProfile(games: GameRecord[]): UserProfile | null {
 
   return {
     username: chosen.username,
+    usernames: [chosen.username],
     runnerGames: totals.runner.get(chosen.username) ?? 0,
     corpGames: totals.corp.get(chosen.username) ?? 0,
     coverage: matchedGames / games.length,
@@ -164,12 +175,53 @@ export function detectUserProfile(games: GameRecord[]): UserProfile | null {
   };
 }
 
+export function buildCombinedProfile(
+  games: GameRecord[],
+  usernames: string[],
+  primaryName?: string | null,
+): UserProfile | null {
+  const unique = Array.from(new Set(usernames.filter((name): name is string => !!name?.trim())));
+  if (!games.length || !unique.length) {
+    return null;
+  }
+  const ordered =
+    primaryName && unique.includes(primaryName)
+      ? [primaryName, ...unique.filter((name) => name !== primaryName)]
+      : unique;
+  let runnerGames = 0;
+  let corpGames = 0;
+  let matchedGames = 0;
+  for (const game of games) {
+    const role = resolveUserRole(game, ordered);
+    if (!role) continue;
+    matchedGames += 1;
+    if (role === "runner") {
+      runnerGames += 1;
+    } else {
+      corpGames += 1;
+    }
+  }
+  const totalGames = games.length;
+  return {
+    username: ordered[0],
+    usernames: ordered,
+    runnerGames,
+    corpGames,
+    coverage: totalGames ? matchedGames / totalGames : 0,
+    totalGames,
+    matchedGames,
+    unmatchedGames: totalGames - matchedGames,
+  };
+}
+
 export function buildIdentityStats(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
   role: PlayerRole,
   identityMap: IdentityMap,
 ): IdentityStat[] {
+  if (!games.length || !usernames.length) return [];
+  const allowed = new Set(usernames);
   const acc = new Map<
     string,
     {
@@ -181,7 +233,7 @@ export function buildIdentityStats(
 
   for (const game of games) {
     const roleData = game[role];
-    if (roleData.username !== username) continue;
+    if (!roleData.username || !allowed.has(roleData.username)) continue;
     if (game.winner === null) continue;
 
     const identity = roleData.identity ?? "Unknown Identity";
@@ -210,10 +262,11 @@ export function buildIdentityStats(
 
 export function buildOpponentIdentityStats(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
   role: PlayerRole,
   identityMap: IdentityMap,
 ): IdentityStat[] {
+  if (!games.length || !usernames.length) return [];
   const opponentRole: PlayerRole = role === "runner" ? "corp" : "runner";
   const acc = new Map<
     string,
@@ -225,7 +278,7 @@ export function buildOpponentIdentityStats(
   >();
 
   for (const game of games) {
-    const playerRole = resolveUserRole(game, username);
+    const playerRole = resolveUserRole(game, usernames);
     if (playerRole !== role) continue;
     if (game.winner === null) continue;
 
@@ -255,11 +308,12 @@ export function buildOpponentIdentityStats(
 
 export function buildOpponentOverallStat(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
   role: PlayerRole,
 ): IdentityStat | null {
+  if (!games.length || !usernames.length) return null;
   const relevant = games.filter(
-    (game) => game.winner !== null && resolveUserRole(game, username) === role,
+    (game) => game.winner !== null && resolveUserRole(game, usernames) === role,
   );
   if (!relevant.length) return null;
   const wins = relevant.reduce((sum, game) => sum + (game.winner === role ? 1 : 0), 0);
@@ -278,16 +332,19 @@ export function buildOpponentOverallStat(
 
 export function buildCombinedOpponentStat(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
 ): IdentityStat | null {
-  const relevant = games.filter(
-    (game) =>
-      game.winner !== null &&
-      (game.runner.username === username || game.corp.username === username),
-  );
+  if (!games.length || !usernames.length) return null;
+  const relevant = games.filter((game) => {
+    if (game.winner === null) return false;
+    return (
+      (game.runner.username && usernames.includes(game.runner.username)) ||
+      (game.corp.username && usernames.includes(game.corp.username))
+    );
+  });
   if (!relevant.length) return null;
   const wins = relevant.reduce((sum, game) => {
-    const role = resolveUserRole(game, username);
+    const role = resolveUserRole(game, usernames);
     return sum + (role && game.winner === role ? 1 : 0);
   }, 0);
   const total = relevant.length;
@@ -303,10 +360,12 @@ export function buildCombinedOpponentStat(
 }
 
 function normalizeGame(rawGame: RawGameRecord): GameRecord {
-  const completedAt = parseDate(
-    rawGame?.["end-date"] ?? rawGame?.["start-date"] ?? rawGame?.["creation-date"],
-  );
+  const completedAt =
+    parseDate(rawGame?.["end-date"]) ??
+    parseDate(rawGame?.["start-date"]) ??
+    parseDate(rawGame?.["creation-date"]);
   return {
+    gameId: typeof rawGame?.gameid === "string" ? rawGame.gameid : null,
     winner: isRole(rawGame?.winner) ? rawGame.winner : null,
     runner: normalizeRole(rawGame?.runner),
     corp: normalizeRole(rawGame?.corp),
@@ -383,16 +442,17 @@ function parseTurnCount(value: unknown): number | null {
 
 export function buildDifferentialTimeline(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
   identityMap: IdentityMap,
   filters?: DifferentialFilters,
 ): DifferentialPoint[] {
+  if (!games.length || !usernames.length) return [];
   const relevant = games
     .filter((game) => {
       if (!game.completedAt || game.winner === null) {
         return false;
       }
-      const role = resolveUserRole(game, username);
+      const role = resolveUserRole(game, usernames);
       if (!role) return false;
       if (filters?.format) {
         const targetFormat = filters.format.trim().toLowerCase();
@@ -418,7 +478,7 @@ export function buildDifferentialTimeline(
   const timeline: DifferentialPoint[] = [];
 
   for (const game of relevant) {
-    const role = resolveUserRole(game, username);
+    const role = resolveUserRole(game, usernames);
     if (!role) continue;
     const didWin = game.winner === role;
     const delta = didWin ? 1 : -1;
@@ -435,9 +495,17 @@ export function buildDifferentialTimeline(
   return timeline;
 }
 
-export function resolveUserRole(game: GameRecord, username: string): PlayerRole | null {
-  if (game.runner.username === username) return "runner";
-  if (game.corp.username === username) return "corp";
+export function resolveUserRole(
+  game: GameRecord,
+  usernames: string | string[] | null | undefined,
+): PlayerRole | null {
+  if (!usernames) return null;
+  const list = Array.isArray(usernames) ? usernames : [usernames];
+  for (const candidate of list) {
+    if (!candidate) continue;
+    if (game.runner.username === candidate) return "runner";
+    if (game.corp.username === candidate) return "corp";
+  }
   return null;
 }
 
@@ -542,22 +610,25 @@ export function buildRollingWinRate(
 
 export function buildRunnerUniqueAccessBuckets(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
 ): OutcomeBucket[] {
-  if (!games.length) return [];
+  if (!games.length || !usernames.length) return [];
+  const cutoff = findAccessCutoff(games);
   const buckets = new Map<number, { wins: number; losses: number }>();
   for (const game of games) {
-    const role = resolveUserRole(game, username);
+    const role = resolveUserRole(game, usernames);
     if (role !== "runner") continue;
     if (game.winner === null) continue;
-    if (game.runnerUniqueAccesses === null) continue;
-    const current = buckets.get(game.runnerUniqueAccesses) ?? { wins: 0, losses: 0 };
+    if (!game.completedAt) continue;
+    const accessValue = resolveAccessValue(game, cutoff);
+    if (accessValue === null) continue;
+    const current = buckets.get(accessValue) ?? { wins: 0, losses: 0 };
     if (game.winner === "runner") {
       current.wins += 1;
     } else {
       current.losses += 1;
     }
-    buckets.set(game.runnerUniqueAccesses, current);
+    buckets.set(accessValue, current);
   }
 
   return Array.from(buckets.entries())
@@ -570,21 +641,24 @@ export function buildRunnerUniqueAccessBuckets(
     .sort((a, b) => a.value - b.value);
 }
 
-export function buildCorpAccessBuckets(games: GameRecord[], username: string): OutcomeBucket[] {
-  if (!games.length) return [];
+export function buildCorpAccessBuckets(games: GameRecord[], usernames: string[]): OutcomeBucket[] {
+  if (!games.length || !usernames.length) return [];
+  const cutoff = findAccessCutoff(games);
   const buckets = new Map<number, { wins: number; losses: number }>();
   for (const game of games) {
-    const role = resolveUserRole(game, username);
+    const role = resolveUserRole(game, usernames);
     if (role !== "corp") continue;
     if (game.winner === null) continue;
-    if (game.runnerUniqueAccesses === null) continue;
-    const current = buckets.get(game.runnerUniqueAccesses) ?? { wins: 0, losses: 0 };
+    if (!game.completedAt) continue;
+    const accessValue = resolveAccessValue(game, cutoff);
+    if (accessValue === null) continue;
+    const current = buckets.get(accessValue) ?? { wins: 0, losses: 0 };
     if (game.winner === "corp") {
       current.wins += 1;
     } else {
       current.losses += 1;
     }
-    buckets.set(game.runnerUniqueAccesses, current);
+    buckets.set(accessValue, current);
   }
   return Array.from(buckets.entries())
     .map(([uniqueAccesses, { wins, losses }]) => ({
@@ -596,12 +670,12 @@ export function buildCorpAccessBuckets(games: GameRecord[], username: string): O
     .sort((a, b) => a.value - b.value);
 }
 
-export function buildTurnBuckets(games: GameRecord[], username: string): OutcomeBucket[] {
-  if (!games.length) return [];
+export function buildTurnBuckets(games: GameRecord[], usernames: string[]): OutcomeBucket[] {
+  if (!games.length || !usernames.length) return [];
   const buckets = new Map<number, { wins: number; losses: number }>();
   for (const game of games) {
     if (game.turnCount === null || game.winner === null) continue;
-    const role = resolveUserRole(game, username);
+    const role = resolveUserRole(game, usernames);
     if (!role) continue;
     const current = buckets.get(game.turnCount) ?? { wins: 0, losses: 0 };
     if (game.winner === role) {
@@ -617,6 +691,51 @@ export function buildTurnBuckets(games: GameRecord[], username: string): Outcome
       wins,
       losses,
       total: wins + losses,
+    }))
+    .sort((a, b) => a.value - b.value);
+}
+
+export function buildGamesPlayedBuckets(
+  games: GameRecord[],
+  usernames: string[],
+  period: HistogramPeriod,
+): GamesPlayedBucket[] {
+  if (!games.length || !usernames.length) return [];
+  const buckets = new Map<
+    number,
+    {
+      wins: number;
+      losses: number;
+      draws: number;
+      date: Date;
+    }
+  >();
+  for (const game of games) {
+    if (!game.completedAt) continue;
+    const role = resolveUserRole(game, usernames);
+    if (!role) continue;
+    const bucketStart = truncateHistogramPeriod(game.completedAt, period);
+    const key = bucketStart.getTime();
+    const bucket = buckets.get(key) ?? { wins: 0, losses: 0, draws: 0, date: bucketStart };
+    if (game.winner === null) {
+      bucket.draws += 1;
+    } else if (game.winner === role) {
+      bucket.wins += 1;
+    } else {
+      bucket.losses += 1;
+    }
+    buckets.set(key, bucket);
+  }
+
+  return Array.from(buckets.entries())
+    .map(([value, { wins, losses, draws, date }]) => ({
+      value,
+      label: formatHistogramLabel(date, period),
+      date,
+      wins,
+      losses,
+      draws,
+      total: wins + losses + draws,
     }))
     .sort((a, b) => a.value - b.value);
 }
@@ -679,4 +798,70 @@ function parseRangeDate(value: string) {
   if (!parsed) return null;
   parsed.setHours(0, 0, 0, 0);
   return parsed;
+}
+
+function resolveAccessValue(game: GameRecord, cutoff: number): number | null {
+  if (game.runnerUniqueAccesses !== null) {
+    return game.runnerUniqueAccesses;
+  }
+  if (!game.completedAt) return null;
+  if (game.completedAt.getTime() >= cutoff) {
+    return 0;
+  }
+  return null;
+}
+
+function findAccessCutoff(games: GameRecord[]): number {
+  let cutoff = Number.POSITIVE_INFINITY;
+  for (const game of games) {
+    if (game.runnerUniqueAccesses !== null && game.completedAt) {
+      cutoff = Math.min(cutoff, game.completedAt.getTime());
+    }
+  }
+  return Number.isFinite(cutoff) ? cutoff : Number.POSITIVE_INFINITY;
+}
+
+export function truncateHistogramPeriod(date: Date, period: HistogramPeriod): Date {
+  const result = new Date(date);
+  result.setUTCHours(0, 0, 0, 0);
+  if (period === "weekly") {
+    const day = result.getUTCDay();
+    const diff = day === 0 ? 6 : day - 1;
+    result.setUTCDate(result.getUTCDate() - diff);
+  } else if (period === "monthly") {
+    result.setUTCDate(1);
+  } else if (period === "yearly") {
+    result.setUTCMonth(0, 1);
+  }
+  return result;
+}
+
+export function addHistogramPeriod(date: Date, period: HistogramPeriod): Date {
+  const result = new Date(date);
+  if (period === "daily") {
+    result.setUTCDate(result.getUTCDate() + 1);
+  } else if (period === "weekly") {
+    result.setUTCDate(result.getUTCDate() + 7);
+  } else if (period === "monthly") {
+    result.setUTCMonth(result.getUTCMonth() + 1);
+  } else if (period === "yearly") {
+    result.setUTCFullYear(result.getUTCFullYear() + 1);
+  }
+  return result;
+}
+
+export function formatHistogramLabel(date: Date, period: HistogramPeriod): string {
+  if (period === "daily") {
+    return date.toISOString().slice(0, 10);
+  }
+  if (period === "weekly") {
+    const year = date.getUTCFullYear();
+    const oneJan = Date.UTC(year, 0, 1);
+    const week = Math.ceil(((date.getTime() - oneJan) / 86400000 + 1) / 7);
+    return `${year}-W${week.toString().padStart(2, "0")}`;
+  }
+  if (period === "monthly") {
+    return `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1).toString().padStart(2, "0")}`;
+  }
+  return `${date.getUTCFullYear()}`;
 }

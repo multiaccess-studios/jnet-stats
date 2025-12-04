@@ -8,6 +8,7 @@ import { OpponentPerformanceSection } from "./components/OpponentPerformanceSect
 import { UniqueAccessesSection } from "./components/UniqueAccessesSection";
 import { CorpAccessesSection } from "./components/CorpAccessesSection";
 import { TurnsHistogramSection } from "./components/TurnsHistogramSection";
+import { GamesPlayedSection } from "./components/GamesPlayedSection";
 import { TopBar } from "./components/TopBar";
 import { useStatsStore } from "./lib/store";
 import { useDataBounds } from "./lib/hooks";
@@ -46,6 +47,7 @@ export function App() {
 
         <HistoryCollector />
 
+        <GamesPlayedSection />
         <DifferentialSection />
         <RollingWinRateSection />
         <UniqueAccessesSection />

@@ -15,7 +15,7 @@ export function TurnsHistogramSection() {
 
   const rawData = useMemo(() => {
     if (!profile) return [];
-    return buildTurnBuckets(filteredGames, profile.username);
+    return buildTurnBuckets(filteredGames, profile.usernames);
   }, [filteredGames, profile]);
 
   const data = useMemo(() => {
@@ -37,21 +37,12 @@ export function TurnsHistogramSection() {
     return filled;
   }, [rawData]);
 
-  const totalSamples = useMemo(() => data.reduce((sum, bucket) => sum + bucket.total, 0), [data]);
-
   const visible = games.length > 0 && showTurns;
   if (!visible) return null;
 
   return (
     <VisualizationCard
       title="Turns to finish"
-      description="Histogram of how many turns your games lasted, colored by win/loss."
-      meta={
-        <span>
-          Games counted:{" "}
-          <span className="font-semibold text-white">{totalSamples.toLocaleString()}</span>
-        </span>
-      }
       actions={
         <label className="flex items-center gap-3 text-xs uppercase tracking-wide text-slate-400">
           <span>Stack top</span>

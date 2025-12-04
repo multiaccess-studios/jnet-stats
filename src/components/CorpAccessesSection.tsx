@@ -15,13 +15,13 @@ export function CorpAccessesSection() {
 
   const rawData = useMemo(() => {
     if (!profile) return [];
-    return buildCorpAccessBuckets(filteredGames, profile.username);
+    return buildCorpAccessBuckets(filteredGames, profile.usernames);
   }, [filteredGames, profile]);
 
   const data = useMemo(() => {
     if (!rawData.length) return [];
     const map = new Map(rawData.map((bucket) => [bucket.value, bucket]));
-    const minAccesses = rawData[0].value;
+    const minAccesses = Math.min(0, rawData[0].value);
     const maxAccesses = rawData[rawData.length - 1].value;
     const filled = [];
     for (let value = minAccesses; value <= maxAccesses; value += 1) {
@@ -48,7 +48,7 @@ export function CorpAccessesSection() {
       description="Shows how often opponents access unique cards against you while you are the corp."
       meta={
         <span>
-          Corp samples counted:{" "}
+          Corp games:{" "}
           <span className="font-semibold text-white">{totalCorpGames.toLocaleString()}</span>
         </span>
       }

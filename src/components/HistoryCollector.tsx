@@ -1,7 +1,13 @@
 import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { parseGameHistoryText } from "../lib/dataProcessing";
+import {
+  buildCombinedProfile,
+  detectUserProfile,
+  parseGameHistoryText,
+  type GameRecord,
+  type UserProfile,
+} from "../lib/dataProcessing";
 import { BOOKMARKLET_CODE } from "../lib/staticData";
-import { useStatsStore } from "../lib/store";
+import { useStatsStore, type LoadedGamePayload, type PlayerSourceSummary } from "../lib/store";
 
 type BrowserName = "chrome" | "firefox" | "safari" | "edge" | "other";
 
@@ -33,10 +39,23 @@ export function HistoryCollector() {
   const bookmarkletRef = useRef<HTMLAnchorElement>(null);
   const [browser, setBrowser] = useState<BrowserName>("other");
 
-  const bookmarkletHref = useMemo(
-    () => (BOOKMARKLET_CODE ? `javascript:${BOOKMARKLET_CODE.trim()}` : ""),
-    [],
-  );
+  const downloadDelayParam = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("downloadDelay");
+  }, []);
+
+  const bookmarkletHref = useMemo(() => {
+    if (!BOOKMARKLET_CODE) return "";
+    const base = BOOKMARKLET_CODE.trim();
+    if (!downloadDelayParam) return `javascript:${base}`;
+    const prefix = base.startsWith("(async()=>") ? "javascript:" : "javascript:";
+    const injected = base.replace(
+      "await e(1500)",
+      `await e(${Number(downloadDelayParam) || 1500})`,
+    );
+    return `${prefix}${injected}`;
+  }, [downloadDelayParam]);
 
   useEffect(() => {
     const link = bookmarkletRef.current;
@@ -54,14 +73,25 @@ export function HistoryCollector() {
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (isLoading || !files?.length) return;
-      const file = files[0];
+      const fileArray = Array.from(files);
       try {
         setIsLoading(true);
         setUploadError(null);
-        const text = await file.text();
-        const parsed = parseGameHistoryText(text);
-        setGames(parsed);
-        setActiveFileName(file.name);
+        const uploads: ParsedUpload[] = [];
+        for (const file of fileArray) {
+          const text = await file.text();
+          const parsedGames = parseGameHistoryText(text);
+          uploads.push({
+            fileName: file.name,
+            games: parsedGames,
+            profile: detectUserProfile(parsedGames),
+          });
+        }
+        const payload = combineUploads(uploads);
+        setGames(payload);
+        setActiveFileName(
+          fileArray.length === 1 ? fileArray[0].name : `${fileArray.length} files selected`,
+        );
         setCollectorVisible(false);
         resetRange();
       } catch (error) {
@@ -251,6 +281,7 @@ export function HistoryCollector() {
               id="history-upload"
               type="file"
               accept=".json"
+              multiple
               className="hidden"
               disabled={isLoading}
               onChange={onFileChange}
@@ -259,7 +290,7 @@ export function HistoryCollector() {
               {isLoading ? (
                 <>Loading game_history.json&hellip;</>
               ) : (
-                <>Drop game_history.json or click to choose</>
+                <>Drop one or more game_history.json files or click to choose</>
               )}
             </p>
             <p className="mt-2 text-xs text-slate-400">
@@ -271,12 +302,60 @@ export function HistoryCollector() {
           {uploadError && <p className="text-sm text-rose-300">Upload error: {uploadError}</p>}
           {profile && unmatchedGames > 0 && (
             <p className="text-xs text-amber-300">
-              {unmatchedGames.toLocaleString()} games did not include {profile.username} as runner
-              or corp. They were ignored for accuracy.
+              {unmatchedGames.toLocaleString()} games did not include{" "}
+              {profile.usernames.join(" / ")} as runner or corp. They were ignored for accuracy.
             </p>
           )}
         </div>
       </div>
     </section>
   );
+}
+
+type ParsedUpload = {
+  fileName: string;
+  games: GameRecord[];
+  profile: UserProfile | null;
+};
+
+function combineUploads(uploads: ParsedUpload[]): LoadedGamePayload {
+  const games = mergeGamesWithoutDuplicates(uploads);
+  const sources: PlayerSourceSummary[] = uploads.map((upload) => ({
+    name: upload.profile?.username ?? null,
+    fileName: upload.fileName,
+    totalGames: upload.games.length,
+  }));
+  const aliasCandidates = sources
+    .map((source) => source.name)
+    .filter((name): name is string => !!name);
+  const primaryUpload = uploads.reduce<ParsedUpload | null>((best, current) => {
+    if (!best || current.games.length > best.games.length) return current;
+    return best;
+  }, null);
+  const primaryName = primaryUpload?.profile?.username ?? aliasCandidates[0] ?? null;
+  const aliasList = primaryName
+    ? [primaryName, ...aliasCandidates.filter((name) => name !== primaryName)]
+    : aliasCandidates;
+  const profile =
+    aliasList.length > 0
+      ? buildCombinedProfile(games, Array.from(new Set(aliasList)), primaryName)
+      : null;
+  return { games, profile, sources };
+}
+
+function mergeGamesWithoutDuplicates(uploads: ParsedUpload[]): GameRecord[] {
+  const deduped = new Map<string, GameRecord>();
+  let fallback = 0;
+  for (const upload of uploads) {
+    for (const game of upload.games) {
+      const key =
+        game.gameId ??
+        `${game.runner.username ?? "runner"}-${game.corp.username ?? "corp"}-${
+          game.completedAt?.toISOString() ?? "unknown"
+        }-${fallback++}`;
+      if (deduped.has(key)) continue;
+      deduped.set(key, game);
+    }
+  }
+  return Array.from(deduped.values());
 }

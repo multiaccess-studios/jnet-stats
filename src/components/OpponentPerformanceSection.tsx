@@ -24,27 +24,27 @@ export function OpponentPerformanceSection() {
 
   const runnerOpponents = useMemo(() => {
     if (!profile) return [];
-    return buildOpponentIdentityStats(filteredGames, profile.username, "runner", IDENTITY_MAP);
+    return buildOpponentIdentityStats(filteredGames, profile.usernames, "runner", IDENTITY_MAP);
   }, [filteredGames, profile]);
 
   const corpOpponents = useMemo(() => {
     if (!profile) return [];
-    return buildOpponentIdentityStats(filteredGames, profile.username, "corp", IDENTITY_MAP);
+    return buildOpponentIdentityStats(filteredGames, profile.usernames, "corp", IDENTITY_MAP);
   }, [filteredGames, profile]);
 
   const overallRunner = useMemo(() => {
     if (!profile) return null;
-    return buildOpponentOverallStat(baseFilteredGames, profile.username, "runner");
+    return buildOpponentOverallStat(baseFilteredGames, profile.usernames, "runner");
   }, [baseFilteredGames, profile]);
 
   const overallCorp = useMemo(() => {
     if (!profile) return null;
-    return buildOpponentOverallStat(baseFilteredGames, profile.username, "corp");
+    return buildOpponentOverallStat(baseFilteredGames, profile.usernames, "corp");
   }, [baseFilteredGames, profile]);
 
   const overallCombined = useMemo(() => {
     if (!profile) return null;
-    return buildCombinedOpponentStat(baseFilteredGames, profile.username);
+    return buildCombinedOpponentStat(baseFilteredGames, profile.usernames);
   }, [baseFilteredGames, profile]);
 
   const combinedStats = useMemo(() => {
@@ -71,7 +71,7 @@ export function OpponentPerformanceSection() {
       stats={displayStats}
       visible={visible}
       metaLabel="Opponent identities"
-      metaDescription="Bar height shows how often you defeat that opposing identity."
+      description="Bar height shows how often you defeat that opposing identity."
       emptyMessage="No opponents match the current filters."
       emptyFooter="Try adjusting your filters to see opponents."
     />

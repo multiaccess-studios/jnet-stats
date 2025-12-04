@@ -21,34 +21,37 @@ export function IdentityPerformanceSection() {
 
   const runnerStats = useMemo(() => {
     if (!profile) return [];
-    return buildIdentityStats(filteredGames, profile.username, "runner", IDENTITY_MAP);
+    return buildIdentityStats(filteredGames, profile.usernames, "runner", IDENTITY_MAP);
   }, [filteredGames, profile]);
 
   const corpStats = useMemo(() => {
     if (!profile) return [];
-    return buildIdentityStats(filteredGames, profile.username, "corp", IDENTITY_MAP);
+    return buildIdentityStats(filteredGames, profile.usernames, "corp", IDENTITY_MAP);
   }, [filteredGames, profile]);
 
   const overallRunner = useMemo(() => {
     if (!profile) return null;
-    return buildOverallStat(baseFilteredGames, profile.username, "runner");
+    return buildOverallStat(baseFilteredGames, profile.usernames, "runner");
   }, [baseFilteredGames, profile]);
 
   const overallCorp = useMemo(() => {
     if (!profile) return null;
-    return buildOverallStat(baseFilteredGames, profile.username, "corp");
+    return buildOverallStat(baseFilteredGames, profile.usernames, "corp");
   }, [baseFilteredGames, profile]);
 
   const overallCombined = useMemo(() => {
     if (!profile) return null;
+    const usernames = profile.usernames;
     const relevant = baseFilteredGames.filter(
       (game) =>
-        game.winner !== null &&
-        (game.runner.username === profile.username || game.corp.username === profile.username),
+        (game.winner !== null &&
+          game.runner.username &&
+          usernames.includes(game.runner.username)) ||
+        (game.corp.username && usernames.includes(game.corp.username)),
     );
     if (!relevant.length) return null;
     const wins = relevant.reduce((sum, game) => {
-      const role = resolveUserRole(game, profile.username);
+      const role = resolveUserRole(game, usernames);
       return sum + (role && game.winner === role ? 1 : 0);
     }, 0);
     const total = relevant.length;
@@ -88,7 +91,7 @@ export function IdentityPerformanceSection() {
       stats={displayStats}
       visible={visible}
       metaLabel="Played identities"
-      metaDescription="Bar height shows how often you win with that identity."
+      description="Bar height shows how often you win with that identity."
       emptyFooter="Try relaxing your filters to see results."
     />
   );
@@ -96,10 +99,15 @@ export function IdentityPerformanceSection() {
 
 function buildOverallStat(
   games: GameRecord[],
-  username: string,
+  usernames: string[],
   role: PlayerRole,
 ): IdentityStat | null {
-  const relevant = games.filter((game) => game.winner !== null && game[role].username === username);
+  const relevant = games.filter(
+    (game) =>
+      game.winner !== null &&
+      game[role].username !== null &&
+      usernames.includes(game[role].username as string),
+  );
   if (!relevant.length) return null;
   const wins = relevant.reduce((sum, game) => sum + (game.winner === role ? 1 : 0), 0);
   const total = relevant.length;

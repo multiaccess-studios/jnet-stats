@@ -14,7 +14,12 @@ import {
   sortAlpha,
   sortFactions,
 } from "../lib/statsUtils";
-import { useStatsStore, type GlobalEntityFilter, type VisualizationKey } from "../lib/store";
+import {
+  useStatsStore,
+  type GlobalEntityFilter,
+  type PlayerSourceSummary,
+  type VisualizationKey,
+} from "../lib/store";
 import { useDataBounds, useFilteredGames } from "../lib/hooks";
 import { IDENTITY_MAP } from "../lib/staticMaps";
 import { DateRangeSlider } from "./DateRangeSlider";
@@ -48,6 +53,11 @@ const VISUALIZATION_OPTIONS: {
     key: "turns",
     label: "Turns to finish",
     description: "Histogram of how long your games last.",
+  },
+  {
+    key: "monthlyTotals",
+    label: "Monthly totals",
+    description: "Games per month, split by wins and losses.",
   },
   {
     key: "identities",
@@ -91,6 +101,7 @@ interface TopBarProps {
 export function TopBar({ onReplaceFile }: TopBarProps) {
   const games = useStatsStore((state) => state.games);
   const profile = useStatsStore((state) => state.profile);
+  const playerSources = useStatsStore((state) => state.playerSources);
   const filterFormat = useStatsStore((state) => state.filterFormat);
   const setFilterFormat = useStatsStore((state) => state.setFilterFormat);
   const entityFilter = useStatsStore((state) => state.entityFilter);
@@ -109,9 +120,6 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const hasData = games.length > 0;
 
-  const playerHoverText = profile
-    ? `${profile.totalGames.toLocaleString()} games | Runner ${profile.runnerGames.toLocaleString()} / Corp ${profile.corpGames.toLocaleString()}`
-    : "No games loaded yet";
   const username = profile?.username ?? null;
   const loadedCounts = useMemo(() => summarizeRoleCounts(games, username), [games, username]);
   const filteredCounts = useMemo(
@@ -146,7 +154,7 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     const factions = new Set<string>();
     const identities = new Set<string>();
     for (const game of filteredGames) {
-      const role = resolveUserRole(game, profile.username);
+      const role = resolveUserRole(game, profile.usernames);
       if (!role) continue;
       const identityName = game[role].identity;
       if (identityName) {
@@ -195,6 +203,19 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     }
   }, [entityFilter, entityFilterOptions, setEntityFilter, setEntityQuery]);
 
+  const otherAccounts = useMemo(() => {
+    if (playerSources.length <= 1) return [];
+    const primary = playerSources.reduce<PlayerSourceSummary | null>((best, current) => {
+      if (!best || current.totalGames > best.totalGames) return current;
+      return best;
+    }, null);
+    return playerSources.filter((source) => source !== primary);
+  }, [playerSources]);
+  const otherAccountNames =
+    otherAccounts.length > 0
+      ? otherAccounts.map((source) => source.name ?? "Unknown player").join(", ")
+      : null;
+
   if (!hasData) return null;
 
   const diffRangeInvalid =
@@ -220,7 +241,10 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     <header className="sticky top-0 z-20 space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-3 text-xl font-semibold text-white">
-          <span title={playerHoverText}>{profile?.username ?? "Unknown Pilot"}</span>
+          <span title={otherAccountNames ?? undefined}>
+            {profile?.username ?? "Unknown Pilot"}
+            {otherAccounts.length > 0 && <span>+</span>}
+          </span>
           <button
             type="button"
             onClick={handleReplaceClick}
@@ -281,6 +305,10 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
             maxDate={maxDate}
             valueStart={rangeStart}
             valueEnd={rangeEnd}
+            onReset={() => {
+              setRangeStart(null);
+              setRangeEnd(null);
+            }}
             onChange={(start, end) => {
               setRangeStart(start);
               setRangeEnd(end);
