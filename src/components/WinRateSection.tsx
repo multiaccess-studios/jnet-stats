@@ -31,8 +31,6 @@ export function WinRateSection({
   emptyMessage = "No games match the current filters.",
   emptyFooter = "Try relaxing your filters to see results.",
 }: WinRateSectionProps) {
-  if (!visible) return null;
-
   const sortOption = useStatsStore((state) => state.winRateSortOrder);
   const setSortOption = useStatsStore((state) => state.setWinRateSortOrder);
   const hasData = stats.length > 0;
@@ -44,6 +42,8 @@ export function WinRateSection({
       return a.identity.localeCompare(b.identity);
     });
   }, [hasData, sortOption, stats]);
+
+  if (!visible) return null;
 
   const metaContent = hasData ? (
     <div className="flex flex-wrap items-center gap-2">
