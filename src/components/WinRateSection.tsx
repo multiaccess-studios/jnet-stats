@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { IdentityStat } from "../lib/dataProcessing";
 import { FACTION_CLASS_MAP } from "../lib/staticMaps";
+import { useStatsStore, type WinRateSortOrder } from "../lib/store";
 import { VisualizationCard } from "./VisualizationCard";
 import { WinRateChart } from "./WinRateChart";
 
@@ -10,8 +11,6 @@ const SORT_OPTIONS = [
   { value: "winRate-desc", label: "Win rate (descending)" },
   { value: "winRate-asc", label: "Win rate (ascending)" },
 ] as const;
-
-type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 
 interface WinRateSectionProps {
   title: string;
@@ -34,7 +33,8 @@ export function WinRateSection({
 }: WinRateSectionProps) {
   if (!visible) return null;
 
-  const [sortOption, setSortOption] = useState<SortOption>("games-desc");
+  const sortOption = useStatsStore((state) => state.winRateSortOrder);
+  const setSortOption = useStatsStore((state) => state.setWinRateSortOrder);
   const hasData = stats.length > 0;
   const sortedStats = useMemo(() => {
     if (!hasData) return stats;
@@ -71,7 +71,7 @@ export function WinRateSection({
       <select
         className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
         value={sortOption}
-        onChange={(event) => setSortOption(event.target.value as SortOption)}
+        onChange={(event) => setSortOption(event.target.value as WinRateSortOrder)}
       >
         {SORT_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>

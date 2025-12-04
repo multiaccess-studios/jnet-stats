@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import index from "./index.html";
 
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.JNET_STATS_PORT ?? 3000);
 
 const server = serve({
   port,

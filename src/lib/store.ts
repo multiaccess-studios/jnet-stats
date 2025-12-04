@@ -30,6 +30,7 @@ interface StatsState {
   uniqueAccessTopSegmentRunner: UniqueAccessTopSegment;
   uniqueAccessTopSegmentCorp: UniqueAccessTopSegment;
   turnTopSegment: UniqueAccessTopSegment;
+  winRateSortOrder: WinRateSortOrder;
   setGames: (games: GameRecord[]) => void;
   setUploadError: (message: string | null) => void;
   setActiveFileName: (name: string) => void;
@@ -47,6 +48,7 @@ interface StatsState {
   setUniqueAccessTopSegmentRunner: (value: UniqueAccessTopSegment) => void;
   setUniqueAccessTopSegmentCorp: (value: UniqueAccessTopSegment) => void;
   setTurnTopSegment: (value: UniqueAccessTopSegment) => void;
+  setWinRateSortOrder: (value: WinRateSortOrder) => void;
   resetData: () => void;
 }
 
@@ -60,6 +62,7 @@ export type VisualizationKey =
   | "corpAccesses"
   | "turns";
 export type UniqueAccessTopSegment = "wins" | "losses";
+export type WinRateSortOrder = "games-desc" | "games-asc" | "winRate-desc" | "winRate-asc";
 
 const DEFAULT_VISUALIZATION_SETTINGS: Record<VisualizationKey, boolean> = Object.freeze({
   differential: true,
@@ -99,6 +102,7 @@ export const useStatsStore = create<StatsState>()(
       uniqueAccessTopSegmentRunner: "wins",
       uniqueAccessTopSegmentCorp: "losses",
       turnTopSegment: "wins",
+      winRateSortOrder: "games-desc",
       setGames: (games) =>
         set(() => ({
           games,
@@ -134,6 +138,7 @@ export const useStatsStore = create<StatsState>()(
       setUniqueAccessTopSegmentRunner: (value) => set({ uniqueAccessTopSegmentRunner: value }),
       setUniqueAccessTopSegmentCorp: (value) => set({ uniqueAccessTopSegmentCorp: value }),
       setTurnTopSegment: (value) => set({ turnTopSegment: value }),
+      setWinRateSortOrder: (value) => set({ winRateSortOrder: value }),
       resetData: () =>
         set(() => ({
           games: [],
@@ -155,6 +160,7 @@ export const useStatsStore = create<StatsState>()(
         uniqueAccessTopSegmentRunner: state.uniqueAccessTopSegmentRunner,
         uniqueAccessTopSegmentCorp: state.uniqueAccessTopSegmentCorp,
         turnTopSegment: state.turnTopSegment,
+        winRateSortOrder: state.winRateSortOrder,
       }),
       merge: (persisted, current) => {
         const stored = persisted as
@@ -163,6 +169,7 @@ export const useStatsStore = create<StatsState>()(
               uniqueAccessTopSegmentRunner?: UniqueAccessTopSegment;
               uniqueAccessTopSegmentCorp?: UniqueAccessTopSegment;
               turnTopSegment?: UniqueAccessTopSegment;
+              winRateSortOrder?: WinRateSortOrder;
             }
           | undefined;
         return {
@@ -173,6 +180,7 @@ export const useStatsStore = create<StatsState>()(
           uniqueAccessTopSegmentCorp:
             stored?.uniqueAccessTopSegmentCorp ?? current.uniqueAccessTopSegmentCorp,
           turnTopSegment: stored?.turnTopSegment ?? current.turnTopSegment,
+          winRateSortOrder: stored?.winRateSortOrder ?? current.winRateSortOrder,
         };
       },
     },
