@@ -1,7 +1,5 @@
-import { Combobox } from "@headlessui/react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  formatRangeLabel,
   getKnownRanges,
   resolveUserRole,
   type GameRecord,
@@ -22,13 +20,21 @@ import {
 } from "../lib/store";
 import { useDataBounds, useFilteredGames } from "../lib/hooks";
 import { IDENTITY_MAP } from "../lib/staticMaps";
-import { DateRangeSlider } from "./DateRangeSlider";
+import { AdvancedFiltersSummary } from "./topbar/AdvancedFiltersSummary";
+import { MoreOptionsPanel } from "./topbar/MoreOptionsPanel";
+import {
+  TopBarPrimarySection,
+  type FormatOption,
+  type RoleCounts,
+} from "./topbar/TopBarPrimarySection";
+import type { VisualizationOption } from "./topbar/VisualizationsMenu";
 
-const VISUALIZATION_OPTIONS: {
-  key: VisualizationKey;
-  label: string;
-  description: string;
-}[] = [
+const VISUALIZATION_OPTIONS: VisualizationOption[] = [
+  {
+    key: "monthlyTotals",
+    label: "Games played",
+    description: "Games played over time, split by wins and losses.",
+  },
   {
     key: "differential",
     label: "Win/Loss Differential",
@@ -41,8 +47,8 @@ const VISUALIZATION_OPTIONS: {
   },
   {
     key: "uniqueAccesses",
-    label: "Unique accesses to win",
-    description: "Runner-only stacked bars of wins and losses by unique accesses.",
+    label: "Unique accesses",
+    description: "Runner-only view of how many different cards you accessed before each result.",
   },
   {
     key: "corpAccesses",
@@ -55,27 +61,16 @@ const VISUALIZATION_OPTIONS: {
     description: "Histogram of how long your games last.",
   },
   {
-    key: "monthlyTotals",
-    label: "Monthly totals",
-    description: "Games per month, split by wins and losses.",
-  },
-  {
     key: "identities",
-    label: "Identity Performance",
-    description: "Chart of each identity's win rate.",
+    label: "Identity performance",
+    description: "Bar height shows how often you win with that identity.",
   },
   {
     key: "opponents",
-    label: "Opponent Performance",
-    description: "Win rates broken down by the opposing identity.",
+    label: "Opponent performance",
+    description: "Bar height shows how often you defeat that opposing identity.",
   },
 ];
-
-interface RoleCounts {
-  total: number;
-  runner: number;
-  corp: number;
-}
 
 function summarizeRoleCounts(games: GameRecord[], username: string | null): RoleCounts {
   if (!games.length) {
@@ -133,7 +128,7 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     [filteredGames, username],
   );
 
-  const formatOptions = useMemo(
+  const formatOptions = useMemo<FormatOption[]>(
     () =>
       sortAlpha(
         games.reduce((acc, game) => {
@@ -188,7 +183,7 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
 
   const advancedPlayerFiltersActive = entityFilters.length > 0;
 
-  const simpleEntityOptions = useMemo(() => {
+  const simpleEntityOptions = useMemo<GlobalEntityFilter[]>(() => {
     if (!entityQuery) return entityFilterOptions;
     const lower = entityQuery.toLowerCase();
     return entityFilterOptions.filter((option) => option.label.toLowerCase().includes(lower));
@@ -198,7 +193,7 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     () => new Set(entityFilters.map((filter) => `${filter.type}-${filter.value}`)),
     [entityFilters],
   );
-  const advancedEntityOptions = useMemo(() => {
+  const advancedEntityOptions = useMemo<GlobalEntityFilter[]>(() => {
     const available = entityFilterOptions.filter(
       (option) => !entityFilterKeys.has(`${option.type}-${option.value}`),
     );
@@ -247,7 +242,7 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     () => new Set(opponentFilters.map((filter) => `${filter.type}-${filter.value}`)),
     [opponentFilters],
   );
-  const filteredOpponentOptions = useMemo(() => {
+  const filteredOpponentOptions = useMemo<GlobalEntityFilter[]>(() => {
     const available = opponentFilterOptions.filter(
       (option) => !opponentFilterKeys.has(`${option.type}-${option.value}`),
     );
@@ -341,514 +336,149 @@ export function TopBar({ onReplaceFile }: TopBarProps) {
     onReplaceFile();
   };
 
+  const handleEntitySelect = (option: GlobalEntityFilter | null) => {
+    setEntityFilter(option);
+    setEntityQuery(option?.label ?? "");
+  };
+
+  const handleEntityClear = () => {
+    if (advancedPlayerFiltersActive) {
+      setEntityFilters([]);
+      setEntityQuery("");
+    } else {
+      setEntityFilter(null);
+      setEntityQuery("");
+    }
+  };
+
+  const handlePlayerFilterAdd = (filter: GlobalEntityFilter) => {
+    const key = `${filter.type}-${filter.value}`;
+    if (entityFilterKeys.has(key)) {
+      setEntityQuery("");
+      return;
+    }
+    setEntityFilters([...entityFilters, filter]);
+    setEntityQuery("");
+  };
+
+  const handlePlayerFilterRemove = (filter: GlobalEntityFilter) => {
+    setEntityFilters(
+      entityFilters.filter(
+        (current) => !(current.type === filter.type && current.value === filter.value),
+      ),
+    );
+  };
+
+  const handlePlayerFilterClear = () => {
+    setEntityFilters([]);
+    setEntityQuery("");
+  };
+
+  const handlePlayerBackspace = () => {
+    if (entityFilters.length === 0) return;
+    setEntityFilters(entityFilters.slice(0, -1));
+  };
+
+  const handleOpponentFilterAdd = (filter: GlobalEntityFilter) => {
+    const key = `${filter.type}-${filter.value}`;
+    if (opponentFilterKeys.has(key)) {
+      setOpponentQuery("");
+      return;
+    }
+    setOpponentFilters([...opponentFilters, filter]);
+    setOpponentQuery("");
+  };
+
+  const handleOpponentFilterRemove = (filter: GlobalEntityFilter) => {
+    setOpponentFilters(
+      opponentFilters.filter(
+        (current) => !(current.type === filter.type && current.value === filter.value),
+      ),
+    );
+  };
+
+  const handleOpponentFilterClear = () => {
+    setOpponentFilters([]);
+    setOpponentQuery("");
+  };
+
+  const handleOpponentBackspace = () => {
+    if (opponentFilters.length === 0) return;
+    setOpponentFilters(opponentFilters.slice(0, -1));
+  };
+
+  const advancedSummary = (
+    <AdvancedFiltersSummary
+      playerFilters={entityFilters}
+      opponentFilters={opponentFilters}
+      onPlayerRemove={handlePlayerFilterRemove}
+      onPlayerClear={handlePlayerFilterClear}
+      onOpponentRemove={handleOpponentFilterRemove}
+      onOpponentClear={handleOpponentFilterClear}
+    />
+  );
+
   return (
     <header className="sticky top-0 z-20 space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-3 text-xl font-semibold text-white">
-          <span title={otherAccountNames ?? undefined}>
-            {profile?.username ?? "Unknown Pilot"}
-            {otherAccounts.length > 0 && <span>+</span>}
-          </span>
-          <button
-            type="button"
-            onClick={handleReplaceClick}
-            title="Upload a different JSON file"
-            className="text-lg transition hover:scale-110 cursor-pointer"
-          >
-            &#128259;
-          </button>
-        </div>
-        <div className="flex-1 text-center text-[0.65rem] text-slate-400 lg:text-xs">
-          <span className="font-semibold text-slate-100">
-            Loaded {loadedCounts.total.toLocaleString()}
-          </span>
-          <span className="mx-2 text-slate-600" aria-hidden="true">
-            &bull;
-          </span>
-          <span>R {loadedCounts.runner.toLocaleString()}</span>
-          <span className="mx-1 text-slate-600">/</span>
-          <span>C {loadedCounts.corp.toLocaleString()}</span>
-          <span className="mx-3 text-slate-700" aria-hidden="true">
-            &bull;
-          </span>
-          <span className="font-semibold text-slate-200">
-            Filtered {filteredCounts.total.toLocaleString()}
-          </span>
-          <span className="mx-2 text-slate-700" aria-hidden="true">
-            &bull;
-          </span>
-          <span>R {filteredCounts.runner.toLocaleString()}</span>
-          <span className="mx-1 text-slate-700">/</span>
-          <span>C {filteredCounts.corp.toLocaleString()}</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((open) => !open)}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-emerald-400 hover:text-white"
-        >
-          More Options
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-        <select
-          value={filterFormat}
-          onChange={(event) => setFilterFormat(event.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white lg:w-52"
-        >
-          <option value="">All formats</option>
-          {formatOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <div className="flex-1">
-          <DateRangeSlider
-            minDate={minDate}
-            maxDate={maxDate}
-            valueStart={rangeStart}
-            valueEnd={rangeEnd}
-            onReset={() => {
-              setRangeStart(null);
-              setRangeEnd(null);
-            }}
-            onChange={(start, end) => {
-              setRangeStart(start);
-              setRangeEnd(end);
-            }}
-          />
-        </div>
-        <div className="w-full lg:w-72">
-          <Combobox
-            value={entityFilter}
-            onChange={(option) => {
-              setEntityFilter(option);
-              setEntityQuery(option?.label ?? "");
-            }}
-            disabled={advancedPlayerFiltersActive}
-            nullable
-          >
-            <div className="relative">
-              <Combobox.Input
-                className={`w-full rounded-xl border px-3 py-2 text-sm ${
-                  advancedPlayerFiltersActive
-                    ? "border-slate-800 bg-slate-900 text-slate-500"
-                    : "border-slate-700 bg-slate-900 text-white"
-                }`}
-                displayValue={(option: GlobalEntityFilter | null) => option?.label ?? ""}
-                onChange={(event) => setEntityQuery(event.target.value)}
-                placeholder="All sides / factions / identities"
-                disabled={advancedPlayerFiltersActive}
-              />
-              {advancedPlayerFiltersActive && (
-                <div className="absolute inset-0 flex items-center justify-between rounded-xl border border-emerald-500/40 bg-slate-900/80 px-3 text-xs font-semibold text-emerald-300">
-                  <span>Advanced filters active</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEntityFilters([]);
-                      setEntityQuery("");
-                    }}
-                    className="text-xs font-semibold text-emerald-200 underline decoration-dotted transition hover:text-white focus:outline-none"
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
-              {!advancedPlayerFiltersActive && entityFilter && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEntityFilter(null);
-                    setEntityQuery("");
-                  }}
-                  className="absolute inset-y-0 right-3 text-xs text-slate-400 transition hover:text-white"
-                >
-                  Clear
-                </button>
-              )}
-              {!advancedPlayerFiltersActive && simpleEntityOptions.length > 0 && (
-                <Combobox.Options className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 text-sm shadow-lg">
-                  {simpleEntityOptions.map((option) => (
-                    <Combobox.Option
-                      key={`${option.type}-${option.value}`}
-                      value={option}
-                      className={({ active }) =>
-                        `cursor-pointer px-3 py-2 ${
-                          active ? "bg-emerald-500/20 text-white" : "text-slate-200"
-                        }`
-                      }
-                    >
-                      {option.label}
-                    </Combobox.Option>
-                  ))}
-                </Combobox.Options>
-              )}
-              {!advancedPlayerFiltersActive && simpleEntityOptions.length === 0 && entityQuery && (
-                <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400 shadow-lg">
-                  No matches
-                </div>
-              )}
-            </div>
-          </Combobox>
-        </div>
-      </div>
-
-      {(entityFilters.length > 0 || opponentFilters.length > 0) && (
-        <div className="mt-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-slate-200">
-          <div className="flex flex-col gap-2">
-            {entityFilters.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[0.65rem] uppercase tracking-wide text-emerald-300">
-                  Advanced (You)
-                </span>
-                {entityFilters.map((filter) => (
-                  <button
-                    key={`chip-player-${filter.type}-${filter.value}`}
-                    type="button"
-                    onClick={() =>
-                      setEntityFilters(
-                        entityFilters.filter(
-                          (current) =>
-                            !(current.type === filter.type && current.value === filter.value),
-                        ),
-                      )
-                    }
-                    className="inline-flex items-center gap-1 rounded-full border border-emerald-500/50 bg-slate-900/80 px-2 py-1 text-[0.7rem] font-semibold text-emerald-100 transition hover:border-emerald-400 hover:text-white"
-                  >
-                    {filter.label}
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setEntityFilters([])}
-                  className="text-[0.7rem] font-semibold text-emerald-200 underline decoration-dotted transition hover:text-white"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-            {opponentFilters.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[0.65rem] uppercase tracking-wide text-emerald-300">
-                  Advanced (Opponent)
-                </span>
-                {opponentFilters.map((filter) => (
-                  <button
-                    key={`chip-opponent-${filter.type}-${filter.value}`}
-                    type="button"
-                    onClick={() =>
-                      setOpponentFilters(
-                        opponentFilters.filter(
-                          (current) =>
-                            !(current.type === filter.type && current.value === filter.value),
-                        ),
-                      )
-                    }
-                    className="inline-flex items-center gap-1 rounded-full border border-emerald-500/50 bg-slate-900/80 px-2 py-1 text-[0.7rem] font-semibold text-emerald-100 transition hover:border-emerald-400 hover:text-white"
-                  >
-                    {filter.label}
-                    <span aria-hidden="true">&times;</span>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setOpponentFilters([])}
-                  className="text-[0.7rem] font-semibold text-emerald-200 underline decoration-dotted transition hover:text-white"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {knownRanges.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {knownRanges.map((range) => (
-            <button
-              key={range.label}
-              type="button"
-              onClick={() => handleKnownRangeSelect(range)}
-              className="rounded-full border border-slate-600 px-2 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400 hover:text-white"
-            >
-              {formatRangeLabel(range.label)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {diffRangeInvalid && (
-        <p className="text-sm text-amber-300">End date must be later than start date.</p>
-      )}
+      <TopBarPrimarySection
+        profileName={profile?.username ?? "Unknown Pilot"}
+        hasAdditionalAccounts={otherAccounts.length > 0}
+        otherAccountNames={otherAccountNames}
+        loadedCounts={loadedCounts}
+        filteredCounts={filteredCounts}
+        onReplaceFile={handleReplaceClick}
+        onToggleSettings={() => setSettingsOpen((open) => !open)}
+        filterFormat={filterFormat}
+        formatOptions={formatOptions}
+        onFormatChange={setFilterFormat}
+        minDate={minDate}
+        maxDate={maxDate}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        onRangeReset={() => {
+          setRangeStart(null);
+          setRangeEnd(null);
+        }}
+        onRangeChange={(start, end) => {
+          setRangeStart(start);
+          setRangeEnd(end);
+        }}
+        entityFilter={entityFilter}
+        entityQuery={entityQuery}
+        onEntityQueryChange={setEntityQuery}
+        onEntitySelect={handleEntitySelect}
+        simpleEntityOptions={simpleEntityOptions}
+        advancedPlayerFiltersActive={advancedPlayerFiltersActive}
+        onEntityClear={handleEntityClear}
+        knownRanges={knownRanges}
+        onKnownRangeSelect={handleKnownRangeSelect}
+        diffRangeInvalid={diffRangeInvalid}
+        advancedSummary={advancedSummary}
+      />
 
       {settingsOpen && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">More options</p>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(false)}
-              className="text-xs text-slate-400 transition hover:text-white"
-            >
-              Done
-            </button>
-          </div>
-          <div className="mt-4 space-y-5">
-            <section>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Advanced filters
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Build filter pools with removable chips for yourself or your opponents.
-              </p>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
-                    Your side / faction / identity
-                  </p>
-                  <div className="mt-2">
-                    <Combobox
-                      value={null}
-                      onChange={(option: GlobalEntityFilter | null) => {
-                        if (!option) return;
-                        const key = `${option.type}-${option.value}`;
-                        if (entityFilterKeys.has(key)) {
-                          setEntityQuery("");
-                          return;
-                        }
-                        setEntityFilters([...entityFilters, option]);
-                        setEntityQuery("");
-                      }}
-                      nullable
-                    >
-                      <div className="relative">
-                        <div className="flex min-h-[42px] flex-wrap items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 pr-10 py-2 text-sm text-white focus-within:border-emerald-500">
-                          {entityFilters.map((filter) => (
-                            <span
-                              key={`advanced-player-${filter.type}-${filter.value}`}
-                              className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 px-2 py-1 text-xs font-semibold text-slate-100"
-                            >
-                              {filter.label}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEntityFilters(
-                                    entityFilters.filter(
-                                      (current) =>
-                                        !(
-                                          current.type === filter.type &&
-                                          current.value === filter.value
-                                        ),
-                                    ),
-                                  )
-                                }
-                                className="text-[10px] text-slate-400 transition hover:text-white"
-                                aria-label={`Remove ${filter.label}`}
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))}
-                          <Combobox.Input
-                            className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none min-w-[80px]"
-                            displayValue={() => ""}
-                            onChange={(event) => setEntityQuery(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (
-                                event.key === "Backspace" &&
-                                entityQuery.length === 0 &&
-                                entityFilters.length > 0
-                              ) {
-                                event.preventDefault();
-                                setEntityFilters(entityFilters.slice(0, -1));
-                              }
-                            }}
-                            placeholder={
-                              entityFilters.length === 0
-                                ? "Add sides / factions / identities"
-                                : undefined
-                            }
-                          />
-                        </div>
-                        {entityFilters.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEntityFilters([]);
-                              setEntityQuery("");
-                            }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 transition hover:text-white"
-                          >
-                            Clear
-                          </button>
-                        )}
-                        {advancedEntityOptions.length > 0 && (
-                          <Combobox.Options className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 text-sm shadow-lg">
-                            {advancedEntityOptions.map((option) => (
-                              <Combobox.Option
-                                key={`advanced-player-option-${option.type}-${option.value}`}
-                                value={option}
-                                className={({ active }) =>
-                                  `cursor-pointer px-3 py-2 ${
-                                    active ? "bg-emerald-500/20 text-white" : "text-slate-200"
-                                  }`
-                                }
-                              >
-                                {option.label}
-                              </Combobox.Option>
-                            ))}
-                          </Combobox.Options>
-                        )}
-                        {advancedEntityOptions.length === 0 && entityQuery && (
-                          <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400 shadow-lg">
-                            No matches
-                          </div>
-                        )}
-                      </div>
-                    </Combobox>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
-                    Opponent side / faction / identity
-                  </p>
-                  <div className="mt-2">
-                    <Combobox
-                      value={null}
-                      onChange={(option: GlobalEntityFilter | null) => {
-                        if (!option) return;
-                        const key = `${option.type}-${option.value}`;
-                        if (opponentFilterKeys.has(key)) {
-                          setOpponentQuery("");
-                          return;
-                        }
-                        setOpponentFilters([...opponentFilters, option]);
-                        setOpponentQuery("");
-                      }}
-                      nullable
-                    >
-                      <div className="relative">
-                        <div className="flex min-h-[42px] flex-wrap items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 pr-10 py-2 text-sm text-white focus-within:border-emerald-500">
-                          {opponentFilters.map((filter) => (
-                            <span
-                              key={`opponent-selected-${filter.type}-${filter.value}`}
-                              className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 px-2 py-1 text-xs font-semibold text-slate-100"
-                            >
-                              {filter.label}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpponentFilters(
-                                    opponentFilters.filter(
-                                      (current) =>
-                                        !(
-                                          current.type === filter.type &&
-                                          current.value === filter.value
-                                        ),
-                                    ),
-                                  )
-                                }
-                                className="text-[10px] text-slate-400 transition hover:text-white"
-                                aria-label={`Remove ${filter.label}`}
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))}
-                          <Combobox.Input
-                            className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none min-w-[80px]"
-                            displayValue={() => ""}
-                            onChange={(event) => setOpponentQuery(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (
-                                event.key === "Backspace" &&
-                                opponentQuery.length === 0 &&
-                                opponentFilters.length > 0
-                              ) {
-                                event.preventDefault();
-                                setOpponentFilters(opponentFilters.slice(0, -1));
-                              }
-                            }}
-                            placeholder={
-                              opponentFilters.length === 0
-                                ? "Add opponent sides / factions / identities"
-                                : undefined
-                            }
-                          />
-                        </div>
-                        {opponentFilters.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpponentFilters([]);
-                              setOpponentQuery("");
-                            }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 transition hover:text-white"
-                          >
-                            Clear
-                          </button>
-                        )}
-                        {filteredOpponentOptions.length > 0 && (
-                          <Combobox.Options className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-700 bg-slate-900 text-sm shadow-lg">
-                            {filteredOpponentOptions.map((option) => (
-                              <Combobox.Option
-                                key={`opponent-${option.type}-${option.value}`}
-                                value={option}
-                                className={({ active }) =>
-                                  `cursor-pointer px-3 py-2 ${
-                                    active ? "bg-emerald-500/20 text-white" : "text-slate-200"
-                                  }`
-                                }
-                              >
-                                {option.label}
-                              </Combobox.Option>
-                            ))}
-                          </Combobox.Options>
-                        )}
-                        {filteredOpponentOptions.length === 0 && opponentQuery && (
-                          <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400 shadow-lg">
-                            No matches
-                          </div>
-                        )}
-                      </div>
-                    </Combobox>
-                  </div>
-                </div>
-              </div>
-            </section>
-            <section>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Visualizations
-              </p>
-              <div className="mt-3 space-y-2">
-                {VISUALIZATION_OPTIONS.map((option) => (
-                  <label
-                    key={option.key}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-200 transition hover:border-emerald-500/60"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={visualizations[option.key]}
-                      onChange={(event) =>
-                        handleVisualizationToggle(option.key, event.target.checked)
-                      }
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="font-semibold text-white">{option.label}</span>
-                      <br />
-                      <span className="text-xs text-slate-400">{option.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
-          </div>
-        </div>
+        <MoreOptionsPanel
+          onClose={() => setSettingsOpen(false)}
+          playerFilters={entityFilters}
+          playerQuery={entityQuery}
+          onPlayerQueryChange={setEntityQuery}
+          onPlayerAdd={handlePlayerFilterAdd}
+          onPlayerRemove={handlePlayerFilterRemove}
+          onPlayerClear={handlePlayerFilterClear}
+          onPlayerBackspace={handlePlayerBackspace}
+          playerOptions={advancedEntityOptions}
+          opponentFilters={opponentFilters}
+          opponentQuery={opponentQuery}
+          onOpponentQueryChange={setOpponentQuery}
+          onOpponentAdd={handleOpponentFilterAdd}
+          onOpponentRemove={handleOpponentFilterRemove}
+          onOpponentClear={handleOpponentFilterClear}
+          onOpponentBackspace={handleOpponentBackspace}
+          opponentOptions={filteredOpponentOptions}
+          visualizations={visualizations}
+          visualizationOptions={VISUALIZATION_OPTIONS}
+          onVisualizationToggle={handleVisualizationToggle}
+        />
       )}
     </header>
   );
