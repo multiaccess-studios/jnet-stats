@@ -36,6 +36,8 @@ export function useFilteredGames() {
   const rangeStart = useStatsStore((state) => state.rangeStart);
   const rangeEnd = useStatsStore((state) => state.rangeEnd);
   const entityFilter = useStatsStore((state) => state.entityFilter);
+  const entityFilters = useStatsStore((state) => state.entityFilters);
+  const opponentFilters = useStatsStore((state) => state.opponentFilters);
   const profile = useStatsStore((state) => state.profile);
 
   return useMemo(() => {
@@ -58,7 +60,13 @@ export function useFilteredGames() {
 
     const usernames = profile?.usernames ?? [];
 
-    if (!entityFilter || usernames.length === 0) {
+    const activeEntityFilters =
+      entityFilters.length > 0 ? entityFilters : entityFilter ? [entityFilter] : [];
+
+    if (
+      (activeEntityFilters.length === 0 && opponentFilters.length === 0) ||
+      usernames.length === 0
+    ) {
       return {
         baseFilteredGames,
         filteredGames: baseFilteredGames,
@@ -70,18 +78,36 @@ export function useFilteredGames() {
     const filteredGames = baseFilteredGames.filter((game) => {
       const role = resolveUserRole(game, usernames);
       if (!role) return false;
-      if (entityFilter.type === "side") {
-        return role === entityFilter.value;
+      const opponentRole = role === "runner" ? "corp" : "runner";
+      let matchesPlayer = activeEntityFilters.length === 0;
+      if (activeEntityFilters.length > 0) {
+        matchesPlayer = activeEntityFilters.some((filter) => {
+          if (filter.type === "side") {
+            return role === filter.value;
+          }
+          if (filter.type === "identity") {
+            return game[role].identity === filter.value;
+          }
+          const identityName = game[role].identity;
+          const faction = (identityName && IDENTITY_MAP.get(identityName)) ?? "UNKNOWN";
+          return faction === filter.value;
+        });
       }
-      if (entityFilter.type === "identity") {
-        return game[role].identity === entityFilter.value;
+      let matchesOpponent = opponentFilters.length === 0;
+      if (opponentFilters.length > 0) {
+        matchesOpponent = opponentFilters.some((filter) => {
+          if (filter.type === "side") {
+            return opponentRole === filter.value;
+          }
+          if (filter.type === "identity") {
+            return game[opponentRole].identity === filter.value;
+          }
+          const identityName = game[opponentRole].identity;
+          const faction = (identityName && IDENTITY_MAP.get(identityName)) ?? "UNKNOWN";
+          return faction === filter.value;
+        });
       }
-      if (entityFilter.type === "faction") {
-        const identityName = game[role].identity;
-        const faction = (identityName && IDENTITY_MAP.get(identityName)) ?? "UNKNOWN";
-        return faction === entityFilter.value;
-      }
-      return true;
+      return matchesPlayer && matchesOpponent;
     });
 
     return {
@@ -90,7 +116,16 @@ export function useFilteredGames() {
       parsedRangeStart,
       parsedRangeEnd,
     };
-  }, [entityFilter, filterFormat, games, profile, rangeEnd, rangeStart]);
+  }, [
+    entityFilter,
+    entityFilters,
+    filterFormat,
+    games,
+    opponentFilters,
+    profile,
+    rangeEnd,
+    rangeStart,
+  ]);
 }
 
 export function useDifferentialPoints(games: GameRecord[]) {

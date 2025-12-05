@@ -27,7 +27,10 @@ interface StatsState {
   rangeEnd: Date | null;
   filterFormat: string;
   entityFilter: GlobalEntityFilter | null;
+  entityFilters: GlobalEntityFilter[];
   entityQuery: string;
+  opponentFilters: GlobalEntityFilter[];
+  opponentQuery: string;
   visualizations: Record<VisualizationKey, boolean>;
   uniqueAccessTopSegmentRunner: UniqueAccessTopSegment;
   uniqueAccessTopSegmentCorp: UniqueAccessTopSegment;
@@ -45,7 +48,11 @@ interface StatsState {
   setRollingWindow: (count: number) => void;
   setFilterFormat: (format: string) => void;
   setEntityFilter: (filter: GlobalEntityFilter | null) => void;
+  setEntityFilters: (filters: GlobalEntityFilter[]) => void;
   setEntityQuery: (query: string) => void;
+  setOpponentFilters: (filters: GlobalEntityFilter[]) => void;
+  setOpponentFilter: (filter: GlobalEntityFilter | null) => void;
+  setOpponentQuery: (query: string) => void;
   setVisualization: (key: VisualizationKey, value: boolean) => void;
   toggleVisualization: (key: VisualizationKey) => void;
   setUniqueAccessTopSegmentRunner: (value: UniqueAccessTopSegment) => void;
@@ -114,7 +121,10 @@ export const useStatsStore = create<StatsState>()(
       rangeEnd: null,
       filterFormat: "",
       entityFilter: null,
+      entityFilters: [],
       entityQuery: "",
+      opponentFilters: [],
+      opponentQuery: "",
       visualizations: mergeVisualizationDefaults(),
       uniqueAccessTopSegmentRunner: "wins",
       uniqueAccessTopSegmentCorp: "losses",
@@ -127,7 +137,10 @@ export const useStatsStore = create<StatsState>()(
           playerSources: payload.sources,
           filterFormat: "",
           entityFilter: null,
+          entityFilters: [],
           entityQuery: "",
+          opponentFilters: [],
+          opponentQuery: "",
           rangeStart: null,
           rangeEnd: null,
         })),
@@ -142,7 +155,11 @@ export const useStatsStore = create<StatsState>()(
       setRollingWindow: (count) => set({ rollingWindow: count }),
       setFilterFormat: (format) => set({ filterFormat: format }),
       setEntityFilter: (filter) => set({ entityFilter: filter }),
+      setEntityFilters: (filters) => set({ entityFilters: filters }),
       setEntityQuery: (query) => set({ entityQuery: query }),
+      setOpponentFilters: (filters) => set({ opponentFilters: filters }),
+      setOpponentFilter: (filter) => set({ opponentFilters: filter ? [filter] : [] }),
+      setOpponentQuery: (query) => set({ opponentQuery: query }),
       setVisualization: (key, value) =>
         set((state) => ({
           visualizations: { ...state.visualizations, [key]: value },
@@ -170,7 +187,10 @@ export const useStatsStore = create<StatsState>()(
           rangeEnd: null,
           filterFormat: "",
           entityFilter: null,
+          entityFilters: [],
           entityQuery: "",
+          opponentFilters: [],
+          opponentQuery: "",
         })),
     }),
     {
